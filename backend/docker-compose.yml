@@ -1,0 +1,71 @@
+version: "3.8"
+
+services:
+  redis:
+    image: redis:alpine
+    container_name: ojek_redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - shared_network
+
+  traccar:
+    image: traccar/traccar:latest
+    container_name: ojek_traccar
+    ports:
+      - "8082:8082"
+      - "5055:5055"
+      - "5055:5055/udp"
+    volumes:
+      - ./traccar-config:/opt/traccar/conf:ro
+      - traccar_logs:/opt/traccar/logs
+    environment:
+      DATABASE_DRIVER: org.postgresql.Driver
+      DATABASE_URL: jdbc:postgresql://host.docker.internal:5434/db_ojek
+      DATABASE_USER: postgres
+      DATABASE_PASSWORD: 23ad4942df614e4c6a6f1d052b414cdac90bf6a6d1ea858cac1af5a2ca335b3a
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - shared_network
+
+  minio:
+    image: minio/minio:latest
+    container_name: ojek_minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - shared_network
+
+  createbuckets:
+    image: minio/mc
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      /usr/bin/mc config host add myminio http://minio:9000 minioadmin minioadmin;
+      /usr/bin/mc mb myminio/skygo-bucket;
+      /usr/bin/mc policy set public myminio/skygo-bucket;
+      exit 0;
+      "
+    networks:
+      - shared_network
+
+volumes:
+  redis_data:
+  traccar_logs:
+  minio_data:
+
+networks:
+  shared_network:
+    driver: bridge

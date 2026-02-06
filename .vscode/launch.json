@@ -1,0 +1,34 @@
+{
+  "configurations": [
+    {
+      "type": "java",
+      "name": "Spring Boot-OjekonlineApplication<ojekonline>",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "mainClass": "com.ojekonline.ojekonline.OjekonlineApplication",
+      "projectName": "ojekonline",
+      "args": "",
+      "envFile": "${workspaceFolder}/.env"
+    },
+    {
+      "type": "java",
+      "name": "Spring Boot-OjekonlineApplication<ojekonline>",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "mainClass": "com.ojekonline.OjekonlineApplication",
+      "projectName": "ojekonline",
+      "args": "",
+      "envFile": "${workspaceFolder}/.env"
+    },
+    {
+      "type": "java",
+      "name": "Spring Boot-skygoApplication<skygo>",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "mainClass": "com.skygo.skygoApplication",
+      "projectName": "skygo",
+      "args": "",
+      "envFile": "${workspaceFolder}/.env"
+    }
+  ]
+}
