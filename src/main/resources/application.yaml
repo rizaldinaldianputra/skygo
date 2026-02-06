@@ -1,0 +1,46 @@
+spring:
+  application:
+    name: skygo
+
+  jmx:
+    enabled: false
+
+  datasource:
+    url: jdbc:postgresql://localhost:5434/db_ojek
+    username: postgres
+    password: password
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    open-in-view: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+  output:
+    ansi:
+      enabled: ALWAYS
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8080/realms/ojek-realm
+          jwk-set-uri: http://localhost:8080/realms/ojek-realm/protocol/openid-connect/certs
+
+server:
+  port: 8081
+
+# Traccar API Config
+traccar:
+  url: http://localhost:8082
+  api:
+  admin:
+    password: admin
