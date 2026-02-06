@@ -28,6 +28,9 @@ public class User {
 
     private Integer points = 0;
 
+    @Enumerated(EnumType.STRING)
+    private Role role = Role.USER;
+
     @CreationTimestamp
     private LocalDateTime createdAt;
 

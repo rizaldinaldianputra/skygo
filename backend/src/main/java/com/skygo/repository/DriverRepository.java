@@ -17,4 +17,8 @@ public interface DriverRepository extends JpaRepository<Driver, Long> {
 
     org.springframework.data.domain.Page<Driver> findAllByStatus(com.skygo.model.DriverStatus status,
             org.springframework.data.domain.Pageable pageable);
+
+    long countByStatus(com.skygo.model.DriverStatus status);
+
+    long countByAvailability(com.skygo.model.DriverAvailability availability);
 }

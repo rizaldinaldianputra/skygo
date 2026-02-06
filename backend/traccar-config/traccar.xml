@@ -4,9 +4,9 @@
     <entry key='config.default'>./conf/default.xml</entry>
 
     <entry key='database.driver'>org.postgresql.Driver</entry>
-    <entry key='database.url'>jdbc:postgresql://host.docker.internal:5434/db_ojek</entry>
+    <entry key='database.url'>jdbc:postgresql://postgres:5432/db_ojek</entry>
     <entry key='database.user'>postgres</entry>
-    <entry key='database.password'>23ad4942df614e4c6a6f1d052b414cdac90bf6a6d1ea858cac1af5a2ca335b3a</entry>
+    <entry key='database.password'>password</entry>
     
     <entry key='web.port'>8082</entry>
     <entry key='geocoder.enable'>false</entry>

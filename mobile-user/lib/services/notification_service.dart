@@ -48,7 +48,7 @@ class NotificationService {
         InitializationSettings(android: initializationSettingsAndroid);
 
     await flutterLocalNotificationsPlugin.initialize(
-      initializationSettings: initializationSettings,
+      settings: initializationSettings,
     );
 
     const AndroidNotificationDetails androidPlatformChannelSpecifics =

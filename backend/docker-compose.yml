@@ -24,11 +24,11 @@ services:
       - traccar_logs:/opt/traccar/logs
     environment:
       DATABASE_DRIVER: org.postgresql.Driver
-      DATABASE_URL: jdbc:postgresql://host.docker.internal:5434/db_ojek
+      DATABASE_URL: jdbc:postgresql://postgres:5432/db_ojek
       DATABASE_USER: postgres
-      DATABASE_PASSWORD: 23ad4942df614e4c6a6f1d052b414cdac90bf6a6d1ea858cac1af5a2ca335b3a
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      DATABASE_PASSWORD: password
+    depends_on:
+      - postgres
     networks:
       - shared_network
 
@@ -61,8 +61,35 @@ services:
     networks:
       - shared_network
 
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.5.2
+    container_name: ojek_keycloak
+    ports:
+      - "8080:8080"
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    command: start-dev
+    networks:
+      - shared_network
+
+  postgres:
+    image: postgres:latest
+    container_name: ojek_postgres
+    ports:
+      - "5434:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: db_ojek
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    networks:
+      - shared_network
+
 volumes:
   redis_data:
+  postgres_data:
   traccar_logs:
   minio_data:
 

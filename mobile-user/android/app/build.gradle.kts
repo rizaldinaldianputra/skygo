@@ -39,6 +39,11 @@ android {
     }
 }
 
+dependencies {
+    // Core library desugaring
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.2.2")
+}
+
 flutter {
     source = "../.."
 }
