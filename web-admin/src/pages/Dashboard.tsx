@@ -1,6 +1,3 @@
-import React, { useEffect, useState } from 'react';
-import api from '../services/api';
-import { ApiResponse } from '../interfaces/types';
 import { Car, Users, ShoppingBag, Activity } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from 'recharts';
 
@@ -13,23 +10,8 @@ interface DashboardStats {
 }
 
 const Dashboard = () => {
-    const [stats, setStats] = useState<DashboardStats | null>(null);
-    const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        const fetchStats = async () => {
-            try {
-                const response = await api.get<ApiResponse<DashboardStats>>('/admin/dashboard/stats');
-                setStats(response.data.data);
-            } catch (error) {
-                console.error("Failed to fetch dashboard stats", error);
-            } finally {
-                setLoading(false);
-            }
-        };
 
-        fetchStats();
-    }, []);
 
     // Mock data for charts (Backend chart API pending)
     const data = [
@@ -42,15 +24,11 @@ const Dashboard = () => {
         { name: 'Sun', orders: 38, drivers: 22 },
     ];
 
-    if (loading) {
-        return <div className="flex justify-center items-center h-full">Loading dashboard...</div>
-    }
-
     const statCards = [
-        { label: 'Total Drivers', value: stats?.totalDrivers || 0, icon: <Car />, color: 'text-blue-500', bg: 'bg-blue-100' },
-        { label: 'Online Drivers', value: stats?.onlineDrivers || 0, icon: <Activity />, color: 'text-green-500', bg: 'bg-green-100' },
-        { label: 'Total Users', value: stats?.totalUsers || 0, icon: <Users />, color: 'text-purple-500', bg: 'bg-purple-100' },
-        { label: 'Total Orders', value: stats?.totalOrders || 0, icon: <ShoppingBag />, color: 'text-orange-500', bg: 'bg-orange-100' },
+        { label: 'Total Drivers', value: 200, icon: <Car />, color: 'text-blue-500', bg: 'bg-blue-100' },
+        { label: 'Online Drivers', value: 201, icon: <Activity />, color: 'text-green-500', bg: 'bg-green-100' },
+        { label: 'Total Users', value: 202, icon: <Users />, color: 'text-purple-500', bg: 'bg-purple-100' },
+        { label: 'Total Orders', value: 203, icon: <ShoppingBag />, color: 'text-orange-500', bg: 'bg-orange-100' },
     ];
 
     return (

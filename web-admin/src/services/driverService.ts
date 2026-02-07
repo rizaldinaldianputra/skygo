@@ -1,5 +1,5 @@
+import type { ApiResponse, Driver, PaginatedResponse } from '../interfaces/types';
 import api from './api';
-import { Driver, PaginatedResponse, ApiResponse } from '../interfaces/types';
 
 export const getPendingDrivers = async (page: number, size: number) => {
     const response = await api.get<PaginatedResponse<Driver[]>>(`/drivers/pending/paginated`, {

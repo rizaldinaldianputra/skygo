@@ -16,23 +16,27 @@ public class DiscountController {
     private final DiscountService discountService;
 
     @GetMapping
-    public ResponseEntity<List<Discount>> getAllDiscounts() {
-        return ResponseEntity.ok(discountService.getAllDiscounts());
+    public ResponseEntity<com.skygo.model.dto.ApiResponse<List<Discount>>> getAllDiscounts() {
+        return ResponseEntity
+                .ok(com.skygo.model.dto.ApiResponse.success("Discounts fetched", discountService.getAllDiscounts()));
     }
 
     @PostMapping
-    public ResponseEntity<Discount> createDiscount(@RequestBody Discount discount) {
-        return ResponseEntity.ok(discountService.createDiscount(discount));
+    public ResponseEntity<com.skygo.model.dto.ApiResponse<Discount>> createDiscount(@RequestBody Discount discount) {
+        return ResponseEntity.ok(
+                com.skygo.model.dto.ApiResponse.success("Discount created", discountService.createDiscount(discount)));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Discount> updateDiscount(@PathVariable Long id, @RequestBody Discount discount) {
-        return ResponseEntity.ok(discountService.updateDiscount(id, discount));
+    public ResponseEntity<com.skygo.model.dto.ApiResponse<Discount>> updateDiscount(@PathVariable Long id,
+            @RequestBody Discount discount) {
+        return ResponseEntity.ok(com.skygo.model.dto.ApiResponse.success("Discount updated",
+                discountService.updateDiscount(id, discount)));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteDiscount(@PathVariable Long id) {
+    public ResponseEntity<com.skygo.model.dto.ApiResponse<Void>> deleteDiscount(@PathVariable Long id) {
         discountService.deleteDiscount(id);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(com.skygo.model.dto.ApiResponse.success("Discount deleted", null));
     }
 }

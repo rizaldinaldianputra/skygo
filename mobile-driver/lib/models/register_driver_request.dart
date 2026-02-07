@@ -1,3 +1,5 @@
+import 'dart:io';
+
 class RegisterDriverRequest {
   final String name;
   final String phone;
@@ -5,6 +7,10 @@ class RegisterDriverRequest {
   final String password;
   final String vehicleType;
   final String vehiclePlate;
+  final String ktpNumber;
+  final String simNumber;
+  final File ktpImage;
+  final File simImage;
 
   RegisterDriverRequest({
     required this.name,
@@ -13,6 +19,10 @@ class RegisterDriverRequest {
     required this.password,
     required this.vehicleType,
     required this.vehiclePlate,
+    required this.ktpNumber,
+    required this.simNumber,
+    required this.ktpImage,
+    required this.simImage,
   });
 
   Map<String, dynamic> toJson() {
@@ -23,6 +33,8 @@ class RegisterDriverRequest {
       'password': password,
       'vehicleType': vehicleType,
       'vehiclePlate': vehiclePlate,
+      'ktpNumber': ktpNumber,
+      'simNumber': simNumber,
     };
   }
 }

@@ -29,7 +29,7 @@ public class OrderService {
     }
 
     // Haversine Formula for distance
-    private double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+    public double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
         final int R = 6371; // Radius of the earth in km
         double latDistance = Math.toRadians(lat2 - lat1);
         double lonDistance = Math.toRadians(lon2 - lon1);
@@ -38,6 +38,14 @@ public class OrderService {
                         * Math.sin(lonDistance / 2) * Math.sin(lonDistance / 2);
         double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         return R * c;
+    }
+
+    public com.skygo.model.dto.FareEstimateResponse getFareEstimate(com.skygo.model.dto.FareEstimateRequest request) {
+        double distance = calculateDistance(
+                request.getPickupLat(), request.getPickupLng(),
+                request.getDestinationLat(), request.getDestinationLng());
+        double price = calculatePrice(distance);
+        return new com.skygo.model.dto.FareEstimateResponse(price, distance);
     }
 
     public Order createOrder(CreateOrderRequest request) {

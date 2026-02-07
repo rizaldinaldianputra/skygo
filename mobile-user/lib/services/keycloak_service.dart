@@ -6,7 +6,7 @@ class KeycloakService {
   final FlutterAppAuth _appAuth = const FlutterAppAuth();
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
 
-  Future<String?> login() async {
+  Future<String?> login({String? idpHint}) async {
     try {
       final AuthorizationTokenResponse? result = await _appAuth
           .authorizeAndExchangeCode(
@@ -20,6 +20,9 @@ class KeycloakService {
                 endSessionEndpoint: KeycloakConfig.endSessionEndpoint,
               ),
               scopes: ['openid', 'profile', 'email', 'offline_access'],
+              additionalParameters: idpHint != null
+                  ? {'kc_idp_hint': idpHint}
+                  : null,
             ),
           );
 

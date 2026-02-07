@@ -15,7 +15,9 @@ public class PaymentController {
     private PaymentService paymentService;
 
     @PostMapping
-    public ResponseEntity<PaymentResponse> createPayment(@RequestBody PaymentRequest request) {
-        return ResponseEntity.ok(paymentService.createPayment(request));
+    public ResponseEntity<com.skygo.model.dto.ApiResponse<PaymentResponse>> createPayment(
+            @RequestBody PaymentRequest request) {
+        return ResponseEntity
+                .ok(com.skygo.model.dto.ApiResponse.success("Payment created", paymentService.createPayment(request)));
     }
 }

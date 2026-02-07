@@ -21,23 +21,20 @@ public class RatingController {
     private OrderRepository orderRepository;
 
     @PostMapping("/add")
-    public ResponseEntity<?> addRating(@RequestBody Map<String, Object> payload) {
-        try {
-            Long orderId = Long.valueOf(payload.get("orderId").toString());
-            int score = Integer.parseInt(payload.get("score").toString());
-            String comment = payload.get("comment").toString();
+    public ResponseEntity<com.skygo.model.dto.ApiResponse<Rating>> addRating(@RequestBody Map<String, Object> payload) {
+        Long orderId = Long.valueOf(payload.get("orderId").toString());
+        int score = Integer.parseInt(payload.get("score").toString());
+        String comment = payload.get("comment").toString();
 
-            Order order = orderRepository.findById(orderId)
-                    .orElseThrow(() -> new RuntimeException("Order not found"));
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Order not found"));
 
-            Rating rating = new Rating();
-            rating.setOrder(order);
-            rating.setScore(score);
-            rating.setComment(comment);
+        Rating rating = new Rating();
+        rating.setOrder(order);
+        rating.setScore(score);
+        rating.setComment(comment);
 
-            return ResponseEntity.ok(ratingRepository.save(rating));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+        return ResponseEntity
+                .ok(com.skygo.model.dto.ApiResponse.success("Rating added", ratingRepository.save(rating)));
     }
 }

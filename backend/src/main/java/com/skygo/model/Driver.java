@@ -20,11 +20,13 @@ public class Driver {
     private String email;
     private String password;
 
-    @Column(unique = true, nullable = false)
     private String phone;
 
     private String vehicleType; // MOTOR or CAR
     private String vehiclePlate;
+
+    private String ktpNumber;
+    private String simNumber;
 
     // PENDING, ACTIVE, SUSPENDED
     @Enumerated(EnumType.STRING)

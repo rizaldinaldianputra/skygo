@@ -3,5 +3,6 @@ package com.skygo.model;
 public enum Role {
     ADMIN,
     USER,
-    DRIVER
+    DRIVER,
+    SUPER_ADMIN
 }

@@ -4,19 +4,21 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../session/session_manager.dart';
 
 class NotificationService {
-  final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
+  FirebaseMessaging? _firebaseMessaging;
   final SessionManager _sessionManager = SessionManager();
 
   Future<void> initialize() async {
+    _firebaseMessaging = FirebaseMessaging.instance;
+
     // Request permission (iOS specifically)
-    await _firebaseMessaging.requestPermission(
+    await _firebaseMessaging!.requestPermission(
       alert: true,
       badge: true,
       sound: true,
     );
 
     // Get FCM Token
-    String? token = await _firebaseMessaging.getToken();
+    String? token = await _firebaseMessaging!.getToken();
     print("FCM Token: $token");
     if (token != null) {
       await _sessionManager.saveFcmToken(token);
@@ -73,7 +75,7 @@ class NotificationService {
   }
 
   Future<String?> getToken() async {
-    return await _firebaseMessaging.getToken();
+    return await _firebaseMessaging!.getToken();
   }
 }
 

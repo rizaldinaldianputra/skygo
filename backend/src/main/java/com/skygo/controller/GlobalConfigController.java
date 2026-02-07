@@ -14,14 +14,15 @@ public class GlobalConfigController {
     private final GlobalConfigService configService;
 
     @GetMapping("/points")
-    public ResponseEntity<Integer> getPointsPerOrder() {
-        return ResponseEntity.ok(configService.getPointsPerOrder());
+    public ResponseEntity<com.skygo.model.dto.ApiResponse<Integer>> getPointsPerOrder() {
+        return ResponseEntity.ok(
+                com.skygo.model.dto.ApiResponse.success("Points config fetched", configService.getPointsPerOrder()));
     }
 
     @PostMapping("/points")
-    public ResponseEntity<Void> setPointsPerOrder(@RequestBody PointsRequest request) {
+    public ResponseEntity<com.skygo.model.dto.ApiResponse<Void>> setPointsPerOrder(@RequestBody PointsRequest request) {
         configService.setPointsPerOrder(request.getPoints());
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(com.skygo.model.dto.ApiResponse.success("Points config updated", null));
     }
 
     @Data

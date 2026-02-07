@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import '../config/api_config.dart';
 import '../models/login_request.dart';
 import '../models/register_driver_request.dart';
@@ -45,13 +46,43 @@ class AuthService {
 
   Future<bool> register(RegisterDriverRequest request) async {
     try {
-      final response = await http.post(
-        Uri.parse(ApiConfig.registerDriverEndpoint),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(request.toJson()), // Backend expects JSON
+      var uri = Uri.parse(ApiConfig.registerDriverEndpoint);
+      var multipartRequest = http.MultipartRequest('POST', uri);
+
+      // Add JSON data
+      multipartRequest.files.add(
+        http.MultipartFile.fromString(
+          'data',
+          jsonEncode(request.toJson()),
+          contentType: MediaType('application', 'json'),
+        ),
       );
 
-      return response.statusCode == 200 || response.statusCode == 201;
+      // Add Files
+      multipartRequest.files.add(
+        await http.MultipartFile.fromPath(
+          'ktpImage',
+          request.ktpImage.path,
+          contentType: MediaType('image', 'jpeg'), // robust guess
+        ),
+      );
+      multipartRequest.files.add(
+        await http.MultipartFile.fromPath(
+          'simImage',
+          request.simImage.path,
+          contentType: MediaType('image', 'jpeg'),
+        ),
+      );
+
+      var streamedResponse = await multipartRequest.send();
+      var response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode == 200) {
+        return true;
+      } else {
+        print("Register failed: ${response.body}");
+        return false;
+      }
     } catch (e) {
       print("Register error: $e");
       return false;

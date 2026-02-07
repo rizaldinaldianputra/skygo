@@ -1,7 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { Column } from '../components/GenericTable';
-import { Driver } from '../interfaces/types';
-import { MapPin } from 'lucide-react';
+
+import { useEffect, useState } from 'react';
+import type { Driver } from '../interfaces/types';
 
 const Monitoring = () => {
     const [drivers, setDrivers] = useState<Driver[]>([]);

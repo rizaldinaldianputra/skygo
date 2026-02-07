@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sign_in_button/sign_in_button.dart';
 import '../models/login_request.dart';
 import '../services/auth_service.dart';
 import '../services/keycloak_service.dart';
@@ -99,41 +100,39 @@ class _LoginPageState extends State<LoginPage> {
                 isLoading: _isLoading,
               ),
               const SizedBox(height: 16),
-              OutlinedButton.icon(
-                icon: const Icon(Icons.login, color: Colors.red),
-                label: const Text(
-                  "Login with Google (Keycloak)",
-                  style: TextStyle(color: Colors.red),
-                ),
+              SignInButton(
+                Buttons.google,
+
                 onPressed: () async {
                   setState(() => _isLoading = true);
-                  final token = await KeycloakService().login();
-                  setState(() => _isLoading = false);
+                  final token = await KeycloakService().login(
+                    idpHint: 'google',
+                  );
 
                   if (token != null) {
-                    // Navigate to Dashboard
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const DashboardPage(),
-                      ),
-                    );
+                    final syncSuccess = await _authService.syncUser(token);
+
+                    if (syncSuccess) {
+                      setState(() => _isLoading = false);
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const DashboardPage(),
+                        ),
+                      );
+                    } else {
+                      setState(() => _isLoading = false);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("Google Sync Failed")),
+                      );
+                    }
                   } else {
+                    setState(() => _isLoading = false);
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text("Google Login Failed")),
                     );
                   }
                 },
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Colors.red),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(25),
-                  ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 12,
-                  ),
-                ),
               ),
               const SizedBox(height: 16),
               TextButton(

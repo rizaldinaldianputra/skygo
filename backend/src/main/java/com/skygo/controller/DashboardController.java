@@ -25,7 +25,7 @@ public class DashboardController {
     @GetMapping("/stats")
     public ResponseEntity<ApiResponse<DashboardStats>> getStats() {
         long totalDrivers = driverRepository.count();
-        long activeDrivers = driverRepository.countByStatus(DriverStatus.APPROVED);
+        long activeDrivers = driverRepository.countByStatus(DriverStatus.ACTIVE);
         long onlineDrivers = driverRepository.countByAvailability(DriverAvailability.ONLINE);
         long totalUsers = userRepository.count();
         long totalOrders = orderRepository.count();

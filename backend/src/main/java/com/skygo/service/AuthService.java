@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -24,17 +25,22 @@ public class AuthService {
     @Autowired
     private DriverRepository driverRepository;
 
+    @Autowired
+    private MinioService minioService;
+
+    @Autowired
+    private JwtService jwtService;
+
     public User registerUser(RegisterUserRequest request) {
-        if (userRepository.findByPhone(request.getPhone()).isPresent()) {
-            throw new RuntimeException("Phone already registered");
-        }
+        // Phone check removed as it is optional now
+
         if (request.getEmail() != null && userRepository.findByEmail(request.getEmail()).isPresent()) {
             throw new RuntimeException("Email already registered");
         }
 
         User user = new User();
         user.setName(request.getName());
-        user.setPhone(request.getPhone());
+        // user.setPhone(request.getPhone()); // Removed as requested
         user.setEmail(request.getEmail());
         if (request.getPassword() != null) {
             user.setPassword(passwordEncoder.encode(request.getPassword()));
@@ -42,23 +48,32 @@ public class AuthService {
         return userRepository.save(user);
     }
 
-    public Driver registerDriver(RegisterDriverRequest request) {
-        if (driverRepository.findByPhone(request.getPhone()).isPresent()) {
-            throw new RuntimeException("Phone already registered");
-        }
+    public Driver registerDriver(RegisterDriverRequest request,
+            org.springframework.web.multipart.MultipartFile ktpImage,
+            org.springframework.web.multipart.MultipartFile simImage) {
+
         if (request.getEmail() != null && driverRepository.findByEmail(request.getEmail()).isPresent()) {
             throw new RuntimeException("Email already registered");
         }
 
+        String ktpUrl = minioService.uploadFile(ktpImage, "driver/ktp");
+        String simUrl = minioService.uploadFile(simImage, "driver/sim");
+
         Driver driver = new Driver();
         driver.setName(request.getName());
-        driver.setPhone(request.getPhone());
+        // driver.setPhone(request.getPhone()); // Removed as requested
         driver.setEmail(request.getEmail());
         if (request.getPassword() != null) {
             driver.setPassword(passwordEncoder.encode(request.getPassword()));
         }
         driver.setVehicleType(request.getVehicleType());
         driver.setVehiclePlate(request.getVehiclePlate());
+
+        driver.setKtpNumber(request.getKtpNumber());
+        driver.setSimNumber(request.getSimNumber());
+        driver.setKtpUrl(ktpUrl);
+        driver.setSimUrl(simUrl);
+
         return driverRepository.save(driver);
     }
 
@@ -80,31 +95,38 @@ public class AuthService {
         return driverRepository.findByPhone(phone);
     }
 
-    public Object login(com.skygo.model.dto.LoginRequest request) {
+    public String login(com.skygo.model.dto.LoginRequest request) {
+        if (request.getEmail() == null || request.getPassword() == null) {
+            throw new RuntimeException("Email and Password are required");
+        }
+
         // 1. Try Email/Password for User
-        if (request.getEmail() != null && request.getPassword() != null) {
-            Optional<User> user = userRepository.findByEmail(request.getEmail());
-            if (user.isPresent() && passwordEncoder.matches(request.getPassword(), user.get().getPassword())) {
-                return user.get();
-            }
-            // 2. Try Email/Password for Driver
-            Optional<Driver> driver = driverRepository.findByEmail(request.getEmail());
-            if (driver.isPresent() && passwordEncoder.matches(request.getPassword(), driver.get().getPassword())) {
-                return driver.get();
-            }
-            throw new RuntimeException("Invalid email or password");
+        Optional<User> user = userRepository.findByEmail(request.getEmail());
+        if (user.isPresent() && passwordEncoder.matches(request.getPassword(), user.get().getPassword())) {
+            return jwtService.generateToken(user.get().getEmail(), Map.of("role", user.get().getRole()));
         }
 
-        // 3. Fallback to Phone/OTP check (Check existance only)
-        if (request.getPhone() != null) {
-            if (userRepository.findByPhone(request.getPhone()).isPresent()) {
-                return "OTP Sent to User";
-            }
-            if (driverRepository.findByPhone(request.getPhone()).isPresent()) {
-                return "OTP Sent to Driver";
-            }
+        // 2. Try Email/Password for Driver
+        Optional<Driver> driver = driverRepository.findByEmail(request.getEmail());
+        if (driver.isPresent() && passwordEncoder.matches(request.getPassword(), driver.get().getPassword())) {
+            return jwtService.generateToken(driver.get().getEmail(), Map.of("role", "DRIVER"));
         }
 
-        throw new RuntimeException("User/Driver not found");
+        throw new RuntimeException("Invalid email or password");
+    }
+
+    public User syncUser(String email, String name) {
+        Optional<User> existingUser = userRepository.findByEmail(email);
+        if (existingUser.isPresent()) {
+            return existingUser.get();
+        }
+
+        User newUser = new User();
+        newUser.setEmail(email);
+        newUser.setName(name != null ? name : "SkyGo User");
+        newUser.setPassword(""); // No password for social login users
+        newUser.setRole(com.skygo.model.Role.USER);
+
+        return userRepository.save(newUser);
     }
 }

@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import GenericTable, { Column } from '../components/GenericTable';
 import { getPendingDrivers, updateDriverStatus } from '../services/driverService';
-import { Driver } from '../interfaces/types';
 import { Check, X } from 'lucide-react';
+import type { Column } from '../components/GenericTable';
+import type { Driver } from '../interfaces/types';
+import GenericTable from '../components/GenericTable';
 
 const Drivers = () => {
     const [drivers, setDrivers] = useState<Driver[]>([]);
