@@ -37,6 +37,9 @@ public class Order {
     @Enumerated(EnumType.STRING)
     private OrderStatus status = OrderStatus.REQUESTED;
 
+    private Integer rating; // 1-5
+    private String feedback;
+
     @CreationTimestamp
     private LocalDateTime createdAt;
 

@@ -73,7 +73,7 @@ class _LoginPageState extends State<LoginPage> {
               ),
               const SizedBox(height: 20),
               const Text(
-                "SkyGo User Login",
+                "Welcome SkyGo",
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
@@ -91,7 +91,7 @@ class _LoginPageState extends State<LoginPage> {
                 hintText: "Password",
                 icon: Icons.lock,
                 controller: _passwordController,
-                obscureText: true,
+                isPassword: true,
               ),
               const SizedBox(height: 24),
               CustomButton(
@@ -100,40 +100,26 @@ class _LoginPageState extends State<LoginPage> {
                 isLoading: _isLoading,
               ),
               const SizedBox(height: 16),
-              SignInButton(
-                Buttons.google,
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: SignInButton(
+                  Buttons.google,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8), // samakan radius
+                  ),
+                  onPressed: () async {
+                    setState(() => _isLoading = true);
 
-                onPressed: () async {
-                  setState(() => _isLoading = true);
-                  final token = await KeycloakService().login(
-                    idpHint: 'google',
-                  );
-
-                  if (token != null) {
-                    final syncSuccess = await _authService.syncUser(token);
-
-                    if (syncSuccess) {
-                      setState(() => _isLoading = false);
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const DashboardPage(),
-                        ),
-                      );
-                    } else {
-                      setState(() => _isLoading = false);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text("Google Sync Failed")),
-                      );
-                    }
-                  } else {
-                    setState(() => _isLoading = false);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("Google Login Failed")),
+                    final token = await KeycloakService().login(
+                      idpHint: 'google',
                     );
-                  }
-                },
+
+                    setState(() => _isLoading = false);
+                  },
+                ),
               ),
+
               const SizedBox(height: 16),
               TextButton(
                 onPressed: () {

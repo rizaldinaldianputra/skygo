@@ -44,8 +44,8 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<Object>> login(@RequestBody LoginRequest request) {
         try {
-            String token = authService.login(request);
-            return ResponseEntity.ok(ApiResponse.success("Login successful", java.util.Map.of("token", token)));
+            java.util.Map<String, Object> loginData = authService.login(request);
+            return ResponseEntity.ok(ApiResponse.success("Login successful", loginData));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         }

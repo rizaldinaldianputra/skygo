@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../session/session_manager.dart';
 import 'login_page.dart';
 import 'map_page.dart';
+import 'order_history_page.dart';
 
 class DashboardPage extends StatelessWidget {
   const DashboardPage({Key? key}) : super(key: key);
@@ -10,8 +11,6 @@ class DashboardPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("SkyGo User"),
-        backgroundColor: const Color(0xFF00BFFF),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
@@ -69,6 +68,19 @@ class DashboardPage extends StatelessWidget {
                   fontWeight: FontWeight.bold,
                 ),
               ),
+            ),
+            const SizedBox(height: 20),
+            OutlinedButton.icon(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const OrderHistoryPage(),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.history),
+              label: const Text("Order History"),
             ),
           ],
         ),

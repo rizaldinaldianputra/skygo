@@ -10,6 +10,7 @@ import '../services/order_service.dart';
 import '../services/location_service.dart';
 import '../services/auth_service.dart'; // Import if needed for auth check
 import '../session/session_manager.dart';
+import 'package:dio/dio.dart';
 import 'waiting_driver_page.dart';
 
 class MapPage extends StatefulWidget {
@@ -325,12 +326,11 @@ class _MapPageState extends State<MapPage> {
       destinationLng: _destinationLocation!.longitude,
     );
 
-    bool success = await _orderService.createOrder(request);
+    try {
+      bool success = await _orderService.createOrder(request);
+      setState(() => _isLoading = false);
 
-    setState(() => _isLoading = false);
-
-    if (mounted) {
-      if (success) {
+      if (mounted && success) {
         // Navigate to Waiting Page
         Navigator.push(
           context,
@@ -342,10 +342,42 @@ class _MapPageState extends State<MapPage> {
             ),
           ),
         );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Failed to create order. Please login."),
+      }
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        String errorMessage = "An error occurred";
+        String statusCode = "";
+
+        if (e is DioException) {
+          statusCode = "Status: ${e.response?.statusCode}";
+          errorMessage = "Error: ${e.response?.data}\nMessage: ${e.message}";
+        } else {
+          errorMessage = e.toString();
+        }
+
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text("Order Failed"),
+            content: SingleChildScrollView(
+              child: ListBody(
+                children: [
+                  Text(
+                    statusCode,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(errorMessage),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text("OK"),
+              ),
+            ],
           ),
         );
       }
@@ -389,7 +421,6 @@ class _MapPageState extends State<MapPage> {
           decoration: InputDecoration(
             hintText: hint,
             filled: true,
-            fillColor: Colors.white,
             prefixIcon: Icon(
               Icons.search,
               color: isPickup ? Colors.green : Colors.red,
@@ -422,7 +453,7 @@ class _MapPageState extends State<MapPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      resizeToAvoidBottomInset: false, // Prevent map resize on keyboard
+      resizeToAvoidBottomInset: false,
       body: Stack(
         children: [
           // MAP LAYER
@@ -528,18 +559,6 @@ class _MapPageState extends State<MapPage> {
             ),
 
           // BACK BUTTON
-          if (!_isLoading) // Hide when loading to prevent accidental clicks
-            Positioned(
-              top: 40,
-              left: 10,
-              child: CircleAvatar(
-                backgroundColor: Colors.white,
-                child: IconButton(
-                  icon: const Icon(Icons.arrow_back),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ),
-            ),
         ],
       ),
     );

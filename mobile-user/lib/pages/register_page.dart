@@ -88,7 +88,7 @@ class _RegisterPageState extends State<RegisterPage> {
                 hintText: "Password",
                 icon: Icons.lock,
                 controller: _passwordController,
-                obscureText: true,
+                isPassword: true,
               ),
               const SizedBox(height: 24),
               CustomButton(

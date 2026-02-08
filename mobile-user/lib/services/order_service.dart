@@ -50,7 +50,65 @@ class OrderService {
       return false;
     } catch (e) {
       print("Error creating order: $e");
+      rethrow; // Rethrow to let UI handle it
+    }
+  }
+
+  Future<List<dynamic>> getHistory(int userId) async {
+    try {
+      final response = await _apiService.get(
+        '/orders/history',
+        queryParameters: {'userId': userId, 'role': 'USER'},
+      );
+      if (response != null && response is Map && response['success'] == true) {
+        return response['data'];
+      }
+      return [];
+    } catch (e) {
+      print("Error getting history: $e");
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>?> getOrderDetails(int orderId) async {
+    try {
+      final response = await _apiService.get('/orders/$orderId');
+      if (response != null && response is Map && response['success'] == true) {
+        return response['data'];
+      }
+      return null;
+    } catch (e) {
+      print("Error getting details: $e");
+      return null;
+    }
+  }
+
+  Future<bool> rateOrder(int orderId, int rating, String feedback) async {
+    try {
+      final response = await _apiService.post(
+        '/orders/$orderId/rate',
+        body: {'rating': rating, 'feedback': feedback},
+      );
+      if (response != null && response is Map && response['success'] == true) {
+        return true;
+      }
       return false;
+    } catch (e) {
+      print("Error rating order: $e");
+      return false;
+    }
+  }
+
+  Future<Map<String, dynamic>?> getInvoice(int orderId) async {
+    try {
+      final response = await _apiService.get('/orders/$orderId/invoice');
+      if (response != null && response is Map && response['success'] == true) {
+        return response['data'];
+      }
+      return null;
+    } catch (e) {
+      print("Error getting invoice: $e");
+      return null;
     }
   }
 }

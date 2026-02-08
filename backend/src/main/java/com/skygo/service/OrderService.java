@@ -8,8 +8,10 @@ import com.skygo.model.Driver;
 import com.skygo.repository.DriverRepository;
 import com.skygo.repository.OrderRepository;
 import com.skygo.repository.UserRepository;
+import com.skygo.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class OrderService {
@@ -21,7 +23,10 @@ public class OrderService {
     private UserRepository userRepository;
 
     @Autowired
-    private MatchingService matchingService;
+    private org.camunda.bpm.engine.RuntimeService runtimeService;
+
+    @Autowired
+    private org.camunda.bpm.engine.TaskService taskService;
 
     // Simple pricing strategy
     private double calculatePrice(double distanceKm) {
@@ -72,8 +77,9 @@ public class OrderService {
 
         Order saved = orderRepository.save(order);
 
-        // Trigger Matching
-        matchingService.findDrivers(saved);
+        // Start Camunda Process
+        runtimeService.startProcessInstanceByKey("order_process", String.valueOf(saved.getId()),
+                java.util.Map.of("orderId", saved.getId()));
 
         return saved;
     }
@@ -90,16 +96,31 @@ public class OrderService {
     @Autowired
     private FcmService fcmService;
 
+    @Transactional
     public Order acceptOrder(Long orderId, Long driverId) {
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new RuntimeException("Order not found"));
+        // 1. Find the Camunda Task for this order
+        org.camunda.bpm.engine.task.Task task = taskService.createTaskQuery()
+                .processVariableValueEquals("orderId", orderId)
+                .taskCandidateGroup("driver")
+                .singleResult();
 
-        if (order.getStatus() != OrderStatus.REQUESTED) {
-            throw new RuntimeException("Order already taken or cancelled");
+        if (task == null) {
+            throw new RuntimeException("Order is not available for acceptance (Task not found or already taken)");
         }
 
         Driver driver = driverRepository.findById(driverId)
                 .orElseThrow(() -> new RuntimeException("Driver not found"));
+
+        // 2. Claim the task (Optimistic locking handled by Camunda)
+        try {
+            taskService.claim(task.getId(), String.valueOf(driverId));
+        } catch (org.camunda.bpm.engine.TaskAlreadyClaimedException e) {
+            throw new RuntimeException("Order already taken by another driver");
+        }
+
+        // 3. Update Domain Model
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Order not found"));
 
         order.setDriver(driver);
         order.setStatus(OrderStatus.ACCEPTED);
@@ -108,6 +129,9 @@ public class OrderService {
         driverService.setDriverAvailability(driverId, false);
 
         Order saved = orderRepository.save(order);
+
+        // 4. Complete the task
+        taskService.complete(task.getId(), java.util.Map.of("driverId", driverId));
 
         // Notify User via WebSocket
         messagingTemplate.convertAndSend("/topic/user/" + order.getUser().getId() + "/orders", saved);
@@ -156,5 +180,31 @@ public class OrderService {
         }
 
         return saved;
+    }
+
+    public java.util.List<Order> getOrderHistory(Long userId, String role) {
+        if ("DRIVER".equalsIgnoreCase(role)) {
+            return orderRepository.findByDriverIdOrderByCreatedAtDesc(userId);
+        } else {
+            return orderRepository.findByUserIdOrderByCreatedAtDesc(userId);
+        }
+    }
+
+    public Order getOrderDetails(Long orderId) {
+        return orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Order not found"));
+    }
+
+    public Order rateOrder(Long orderId, Integer rating, String feedback) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Order not found"));
+
+        if (order.getStatus() != OrderStatus.COMPLETED) {
+            throw new RuntimeException("Cannot rate an incomplete order");
+        }
+
+        order.setRating(rating);
+        order.setFeedback(feedback);
+        return orderRepository.save(order);
     }
 }

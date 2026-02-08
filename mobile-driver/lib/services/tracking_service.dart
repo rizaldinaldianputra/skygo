@@ -1,10 +1,13 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'dart:async';
+import 'package:dio/dio.dart';
 import 'package:geolocator/geolocator.dart';
+import '../core/dio_client.dart';
 import '../config/api_config.dart';
 import '../session/session_manager.dart';
+import '../core/toast_service.dart';
 
 class TrackingService {
+  final Dio _dio = DioClient().dio;
   final SessionManager _sessionManager = SessionManager();
 
   // Sends current location to backend
@@ -21,13 +24,9 @@ class TrackingService {
         "lng": lng,
       };
 
-      final response = await http.post(
-        Uri.parse(ApiConfig.trackingUpdateEndpoint),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(payload),
-      );
+      await _dio.post(ApiConfig.trackingUpdateEndpoint, data: payload);
 
-      return response.statusCode == 200;
+      return true;
     } catch (e) {
       print("Tracking update error: $e");
       return false;
@@ -44,12 +43,15 @@ class TrackingService {
           ? ApiConfig.driverOnlineEndpoint.replaceFirst("{id}", userIdStr)
           : ApiConfig.driverOfflineEndpoint.replaceFirst("{id}", userIdStr);
 
-      final response = await http.post(
-        Uri.parse(url),
-        headers: {'Content-Type': 'application/json'},
-      );
+      final response = await _dio.post(url);
 
-      return response.statusCode == 200;
+      if (response.statusCode == 200) {
+        ToastService.showSuccess(
+          isOnline ? "You are now ONLINE" : "You are now OFFLINE",
+        );
+        return true;
+      }
+      return false;
     } catch (e) {
       print("Availability error: $e");
       return false;
@@ -63,6 +65,7 @@ class TrackingService {
 
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
+      ToastService.showError("Location services are disabled.");
       return null;
     }
 
@@ -70,11 +73,13 @@ class TrackingService {
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
+        ToastService.showError("Location permissions are denied.");
         return null;
       }
     }
 
     if (permission == LocationPermission.deniedForever) {
+      ToastService.showError("Location permissions are permanently denied.");
       return null;
     }
 

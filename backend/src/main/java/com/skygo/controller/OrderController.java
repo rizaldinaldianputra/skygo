@@ -46,6 +46,33 @@ public class OrderController {
         return ResponseEntity.ok(com.skygo.model.dto.ApiResponse.success("Trip finished", order));
     }
 
+    @GetMapping("/history")
+    public ResponseEntity<com.skygo.model.dto.ApiResponse<java.util.List<Order>>> getOrderHistory(
+            @RequestParam Long userId, @RequestParam String role) {
+        java.util.List<Order> history = orderService.getOrderHistory(userId, role);
+        return ResponseEntity.ok(com.skygo.model.dto.ApiResponse.success("Order history retrieved", history));
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<com.skygo.model.dto.ApiResponse<Order>> getOrderDetails(@PathVariable Long id) {
+        Order order = orderService.getOrderDetails(id);
+        return ResponseEntity.ok(com.skygo.model.dto.ApiResponse.success("Order details retrieved", order));
+    }
+
+    @PostMapping("/{id}/rate")
+    public ResponseEntity<com.skygo.model.dto.ApiResponse<Order>> rateOrder(@PathVariable Long id,
+            @RequestBody com.skygo.model.dto.RateOrderRequest request) {
+        Order order = orderService.rateOrder(id, request.getRating(), request.getFeedback());
+        return ResponseEntity.ok(com.skygo.model.dto.ApiResponse.success("Order rated", order));
+    }
+
+    @GetMapping("/{id}/invoice")
+    public ResponseEntity<com.skygo.model.dto.ApiResponse<Order>> getInvoice(@PathVariable Long id) {
+        Order order = orderService.getOrderDetails(id);
+        // For now, invoice data is just the order data
+        return ResponseEntity.ok(com.skygo.model.dto.ApiResponse.success("Invoice data retrieved", order));
+    }
+
     @PostMapping("/estimate-fare")
     public ResponseEntity<com.skygo.model.dto.ApiResponse<com.skygo.model.dto.FareEstimateResponse>> estimateFare(
             @RequestBody com.skygo.model.dto.FareEstimateRequest request) {

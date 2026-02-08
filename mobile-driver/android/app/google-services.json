@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "683711467449",
+    "project_id": "skygo-8eade",
+    "storage_bucket": "skygo-8eade.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:683711467449:android:f792232a059155c69db068",
+        "android_client_info": {
+          "package_name": "com.skycosmic.driver"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCmZPXRBsqm009YMrp2JYxEZa6LFiM0hDk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:683711467449:android:251434cdffbb08819db068",
+        "android_client_info": {
+          "package_name": "com.skycosmic.skygo"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCmZPXRBsqm009YMrp2JYxEZa6LFiM0hDk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
-class CustomTextField extends StatelessWidget {
+class CustomTextField extends StatefulWidget {
   final String hintText;
   final IconData icon;
   final TextEditingController controller;
-  final bool obscureText;
+  final bool isPassword;
   final TextInputType keyboardType;
 
   const CustomTextField({
@@ -12,9 +12,16 @@ class CustomTextField extends StatelessWidget {
     required this.hintText,
     required this.icon,
     required this.controller,
-    this.obscureText = false,
+    this.isPassword = false,
     this.keyboardType = TextInputType.text,
   }) : super(key: key);
+
+  @override
+  State<CustomTextField> createState() => _CustomTextFieldState();
+}
+
+class _CustomTextFieldState extends State<CustomTextField> {
+  bool _obscureText = true;
 
   @override
   Widget build(BuildContext context) {
@@ -31,12 +38,25 @@ class CustomTextField extends StatelessWidget {
         ],
       ),
       child: TextField(
-        controller: controller,
-        obscureText: obscureText,
-        keyboardType: keyboardType,
+        controller: widget.controller,
+        obscureText: widget.isPassword ? _obscureText : false,
+        keyboardType: widget.keyboardType,
         decoration: InputDecoration(
-          hintText: hintText,
-          prefixIcon: Icon(icon, color: const Color(0xFF00BFFF)),
+          hintText: widget.hintText,
+          prefixIcon: Icon(widget.icon, color: const Color(0xFF00BFFF)),
+          suffixIcon: widget.isPassword
+              ? IconButton(
+                  icon: Icon(
+                    _obscureText ? Icons.visibility_off : Icons.visibility,
+                    color: Colors.grey,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _obscureText = !_obscureText;
+                    });
+                  },
+                )
+              : null,
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 20,

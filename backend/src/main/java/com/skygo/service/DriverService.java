@@ -20,6 +20,23 @@ public class DriverService {
 
     @Transactional
     public Driver registerDriver(DriverRegistrationRequest request) {
+        // Validate required fields
+        if (request.getPhone() == null || request.getPhone().isEmpty()) {
+            throw new IllegalArgumentException("Phone number is required");
+        }
+        if (request.getKtpNumber() == null || request.getKtpNumber().isEmpty()) {
+            throw new IllegalArgumentException("KTP Number is required");
+        }
+        if (request.getSimNumber() == null || request.getSimNumber().isEmpty()) {
+            throw new IllegalArgumentException("SIM Number is required");
+        }
+        if (request.getName() == null || request.getName().isEmpty()) {
+            throw new IllegalArgumentException("Name is required");
+        }
+        if (request.getEmail() == null || request.getEmail().isEmpty()) {
+            throw new IllegalArgumentException("Email is required");
+        }
+
         // validate email/phone uniqueness if needed
         if (driverRepository.existsByEmail(request.getEmail())) {
             throw new RuntimeException("Email already registered");
@@ -35,6 +52,11 @@ public class DriverService {
         driver.setPassword(request.getPassword()); // In real app, hash this or offload to Keycloak
         driver.setVehicleType(request.getVehicleType());
         driver.setVehiclePlate(request.getVehiclePlate());
+        driver.setKtpNumber(request.getKtpNumber());
+        driver.setSimNumber(request.getSimNumber());
+        if (request.getFcmToken() != null && !request.getFcmToken().isEmpty()) {
+            driver.setFcmToken(request.getFcmToken());
+        }
         driver.setStatus(DriverStatus.PENDING);
         driver.setAvailability(DriverAvailability.OFFLINE);
 
@@ -55,6 +77,14 @@ public class DriverService {
         }
 
         return driverRepository.save(driver);
+    }
+
+    @Transactional
+    public void updateFcmToken(Long driverId, String fcmToken) {
+        Driver driver = driverRepository.findById(driverId)
+                .orElseThrow(() -> new RuntimeException("Driver not found"));
+        driver.setFcmToken(fcmToken);
+        driverRepository.save(driver);
     }
 
     @Transactional

@@ -18,6 +18,7 @@ public class Driver {
     private String name;
 
     private String email;
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private String password;
 
     private String phone;

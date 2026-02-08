@@ -61,7 +61,7 @@ public class AuthService {
 
         Driver driver = new Driver();
         driver.setName(request.getName());
-        // driver.setPhone(request.getPhone()); // Removed as requested
+        driver.setPhone(request.getPhone());
         driver.setEmail(request.getEmail());
         if (request.getPassword() != null) {
             driver.setPassword(passwordEncoder.encode(request.getPassword()));
@@ -95,7 +95,7 @@ public class AuthService {
         return driverRepository.findByPhone(phone);
     }
 
-    public String login(com.skygo.model.dto.LoginRequest request) {
+    public Map<String, Object> login(com.skygo.model.dto.LoginRequest request) {
         if (request.getEmail() == null || request.getPassword() == null) {
             throw new RuntimeException("Email and Password are required");
         }
@@ -103,13 +103,23 @@ public class AuthService {
         // 1. Try Email/Password for User
         Optional<User> user = userRepository.findByEmail(request.getEmail());
         if (user.isPresent() && passwordEncoder.matches(request.getPassword(), user.get().getPassword())) {
-            return jwtService.generateToken(user.get().getEmail(), Map.of("role", user.get().getRole()));
+            String token = jwtService.generateToken(user.get().getEmail(), Map.of("role", user.get().getRole()));
+            return Map.of(
+                    "token", token,
+                    "id", user.get().getId(),
+                    "name", user.get().getName(),
+                    "role", "USER");
         }
 
         // 2. Try Email/Password for Driver
         Optional<Driver> driver = driverRepository.findByEmail(request.getEmail());
         if (driver.isPresent() && passwordEncoder.matches(request.getPassword(), driver.get().getPassword())) {
-            return jwtService.generateToken(driver.get().getEmail(), Map.of("role", "DRIVER"));
+            String token = jwtService.generateToken(driver.get().getEmail(), Map.of("role", "DRIVER"));
+            return Map.of(
+                    "token", token,
+                    "id", driver.get().getId(),
+                    "name", driver.get().getName(),
+                    "role", "DRIVER");
         }
 
         throw new RuntimeException("Invalid email or password");

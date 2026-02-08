@@ -73,14 +73,7 @@ class _RegisterPageState extends State<RegisterPage> {
     setState(() => _isLoading = false);
 
     if (success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Registration Successful! Please Login.")),
-      );
       Navigator.pop(context); // Go back to Login
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Registration Failed. Try again.")),
-      );
     }
   }
 
@@ -129,10 +122,24 @@ class _RegisterPageState extends State<RegisterPage> {
                 obscureText: true,
               ),
               const SizedBox(height: 16),
-              CustomTextField(
-                hintText: "Vehicle Type (MOTOR/CAR)",
-                icon: Icons.motorcycle,
-                controller: _vehicleTypeController,
+              DropdownButtonFormField<String>(
+                value: _vehicleTypeController.text.isEmpty
+                    ? null
+                    : _vehicleTypeController.text,
+                decoration: const InputDecoration(
+                  labelText: "Vehicle Type",
+                  prefixIcon: Icon(Icons.motorcycle),
+                  border: OutlineInputBorder(),
+                ),
+                items: const [
+                  DropdownMenuItem(value: "MOTOR", child: Text("MOTOR")),
+                  DropdownMenuItem(value: "CAR", child: Text("CAR")),
+                ],
+                onChanged: (value) {
+                  setState(() {
+                    _vehicleTypeController.text = value!;
+                  });
+                },
               ),
               const SizedBox(height: 16),
               CustomTextField(

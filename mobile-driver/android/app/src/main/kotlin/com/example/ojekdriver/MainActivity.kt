@@ -1,4 +1,4 @@
-package com.example.ojekdriver
+package com.skycosmic.driver
 
 import io.flutter.embedding.android.FlutterActivity
 

@@ -22,6 +22,7 @@ public class User {
 
     private String email;
 
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private String password;
 
     private String fcmToken; // For push notifications

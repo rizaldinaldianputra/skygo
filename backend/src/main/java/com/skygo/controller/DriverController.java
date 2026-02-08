@@ -23,11 +23,32 @@ public class DriverController {
 
     private final DriverService driverService;
 
+    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+
     @PostMapping(value = "/register", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<ApiResponse<Driver>> registerDriver(@ModelAttribute DriverRegistrationRequest request) {
+    public ResponseEntity<ApiResponse<Driver>> registerDriver(
+            @RequestPart("data") String driverData,
+            @RequestPart(value = "sim", required = false) org.springframework.web.multipart.MultipartFile sim,
+            @RequestPart(value = "ktp", required = false) org.springframework.web.multipart.MultipartFile ktp,
+            @RequestPart(value = "photo", required = false) org.springframework.web.multipart.MultipartFile photo) {
         try {
+            DriverRegistrationRequest request = objectMapper.readValue(driverData, DriverRegistrationRequest.class);
+            request.setSim(sim);
+            request.setKtp(ktp);
+            request.setPhoto(photo);
+
             Driver driver = driverService.registerDriver(request);
             return ResponseEntity.ok(ApiResponse.success("Driver registered successfully", driver));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    @PutMapping("/{id}/fcm-token")
+    public ResponseEntity<ApiResponse<String>> updateFcmToken(@PathVariable Long id, @RequestParam String token) {
+        try {
+            driverService.updateFcmToken(id, token);
+            return ResponseEntity.ok(ApiResponse.success("FCM Token updated", "Success"));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         }

@@ -8,6 +8,7 @@ public class RegisterDriverRequest {
 
     private String email;
     private String password;
+    private String phone;
     private String vehicleType;
     private String vehiclePlate;
     private String ktpNumber;

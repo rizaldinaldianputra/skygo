@@ -11,6 +11,9 @@ public class DriverRegistrationRequest {
     private String phone;
     private String vehicleType;
     private String vehiclePlate;
+    private String ktpNumber;
+    private String simNumber;
+    private String fcmToken;
     private MultipartFile sim;
     private MultipartFile ktp;
     private MultipartFile photo;

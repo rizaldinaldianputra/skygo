@@ -42,11 +42,7 @@ class _LoginPageState extends State<LoginPage> {
         context,
         MaterialPageRoute(builder: (context) => const DashboardPage()),
       );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Login Failed. Check credentials.")),
-      );
-    }
+    } else {}
   }
 
   @override
