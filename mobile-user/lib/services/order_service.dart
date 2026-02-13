@@ -1,8 +1,14 @@
 import '../models/order_request.dart';
+import '../models/order_model.dart';
 import 'api_service.dart';
 
 class OrderService {
   final ApiService _apiService = ApiService();
+
+  /// Helper to check if response indicates success
+  bool _isSuccess(Map response) {
+    return response['status'] == true || response['success'] == true;
+  }
 
   Future<Map<String, dynamic>?> getFareEstimate(
     double pickupLat,
@@ -22,7 +28,7 @@ class OrderService {
       );
 
       if (response != null && response is Map) {
-        if (response['success'] == true && response['data'] != null) {
+        if (_isSuccess(response) && response['data'] != null) {
           return response['data'];
         }
       }
@@ -33,7 +39,7 @@ class OrderService {
     }
   }
 
-  Future<bool> createOrder(OrderRequest request) async {
+  Future<Order?> createOrder(OrderRequest request) async {
     try {
       final response = await _apiService.post(
         '/orders/create',
@@ -41,16 +47,14 @@ class OrderService {
       );
 
       if (response != null && response is Map) {
-        // Check success flag or similar if your API returns it
-        // Assuming standard ApiResponse with 'success': true
-        if (response['success'] == true) return true;
-        // If response is just the order object, it's also true
-        return true;
+        if (_isSuccess(response) && response['data'] != null) {
+          return Order.fromJson(response['data']);
+        }
       }
-      return false;
+      return null;
     } catch (e) {
       print("Error creating order: $e");
-      rethrow; // Rethrow to let UI handle it
+      rethrow;
     }
   }
 
@@ -60,7 +64,7 @@ class OrderService {
         '/orders/history',
         queryParameters: {'userId': userId, 'role': 'USER'},
       );
-      if (response != null && response is Map && response['success'] == true) {
+      if (response != null && response is Map && _isSuccess(response)) {
         return response['data'];
       }
       return [];
@@ -73,7 +77,7 @@ class OrderService {
   Future<Map<String, dynamic>?> getOrderDetails(int orderId) async {
     try {
       final response = await _apiService.get('/orders/$orderId');
-      if (response != null && response is Map && response['success'] == true) {
+      if (response != null && response is Map && _isSuccess(response)) {
         return response['data'];
       }
       return null;
@@ -89,7 +93,7 @@ class OrderService {
         '/orders/$orderId/rate',
         body: {'rating': rating, 'feedback': feedback},
       );
-      if (response != null && response is Map && response['success'] == true) {
+      if (response != null && response is Map && _isSuccess(response)) {
         return true;
       }
       return false;
@@ -102,13 +106,43 @@ class OrderService {
   Future<Map<String, dynamic>?> getInvoice(int orderId) async {
     try {
       final response = await _apiService.get('/orders/$orderId/invoice');
-      if (response != null && response is Map && response['success'] == true) {
+      if (response != null && response is Map && _isSuccess(response)) {
         return response['data'];
       }
       return null;
     } catch (e) {
       print("Error getting invoice: $e");
       return null;
+    }
+  }
+
+  /// Get driver location for a specific order's assigned driver
+  Future<Map<String, dynamic>?> getDriverLocation(int driverId) async {
+    try {
+      final response = await _apiService.get(
+        '/tracking/driver/$driverId/location',
+      );
+      if (response != null && response is Map && _isSuccess(response)) {
+        return response['data'];
+      }
+      return null;
+    } catch (e) {
+      print("Error getting driver location: $e");
+      return null;
+    }
+  }
+
+  /// Cancel an order
+  Future<bool> cancelOrder(int orderId) async {
+    try {
+      final response = await _apiService.post('/orders/$orderId/cancel');
+      if (response != null && response is Map && _isSuccess(response)) {
+        return true;
+      }
+      return false;
+    } catch (e) {
+      print("Error cancelling order: $e");
+      return false;
     }
   }
 }

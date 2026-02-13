@@ -21,7 +21,7 @@ public class Payment {
     private double amount;
 
     @Enumerated(EnumType.STRING)
-    private PaymentMethod paymentMethod; // CASH, MIDTRANS
+    private PaymentMethodType paymentMethod; // CASH, MIDTRANS
 
     @Enumerated(EnumType.STRING)
     private PaymentStatus status; // PENDING, PAID, EXPIRED, CANCELLED

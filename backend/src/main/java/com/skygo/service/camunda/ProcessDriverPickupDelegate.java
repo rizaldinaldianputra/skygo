@@ -23,8 +23,8 @@ public class ProcessDriverPickupDelegate implements JavaDelegate {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found: " + orderId));
 
-        if (order.getStatus() != OrderStatus.ON_TRIP) {
-            order.setStatus(OrderStatus.ON_TRIP);
+        if (order.getStatus() != OrderStatus.ONGOING) {
+            order.setStatus(OrderStatus.ONGOING);
             orderRepository.save(order);
         }
 

@@ -16,6 +16,9 @@ import org.springframework.http.ResponseEntity;
 @Slf4j
 public class UserController {
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.skygo.repository.UserRepository userRepository;
+
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<UserProfileResponse>> getMyProfile(@AuthenticationPrincipal Jwt jwt) {
         log.info("Fetching profile for user: {}", jwt.getSubject());
@@ -29,5 +32,20 @@ public class UserController {
                 .build();
 
         return ResponseEntity.ok(ApiResponse.success("User profile fetched", profile));
+    }
+
+    @org.springframework.web.bind.annotation.PutMapping("/{id}/fcm-token")
+    public ResponseEntity<ApiResponse<String>> updateFcmToken(
+            @org.springframework.web.bind.annotation.PathVariable Long id,
+            @org.springframework.web.bind.annotation.RequestParam String token) {
+        try {
+            com.skygo.model.User user = userRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+            user.setFcmToken(token);
+            userRepository.save(user);
+            return ResponseEntity.ok(ApiResponse.success("FCM Token updated", "Success"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        }
     }
 }

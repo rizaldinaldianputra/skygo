@@ -32,4 +32,21 @@ public class TrackingService {
     public void removeDriverFromGeo(Long driverId) {
         redisTemplate.opsForGeo().remove(GEO_KEY, driverId.toString());
     }
+
+    /**
+     * Get the current location of a driver from Redis Geo.
+     * Returns a Map with "lat" and "lng" keys, or null if not found.
+     */
+    public java.util.Map<String, Double> getDriverLocation(Long driverId) {
+        java.util.List<org.springframework.data.geo.Point> positions = redisTemplate.opsForGeo()
+                .position(GEO_KEY, driverId.toString());
+        if (positions != null && !positions.isEmpty() && positions.get(0) != null) {
+            org.springframework.data.geo.Point point = positions.get(0);
+            java.util.Map<String, Double> location = new java.util.HashMap<>();
+            location.put("lat", point.getY()); // Y = latitude
+            location.put("lng", point.getX()); // X = longitude
+            return location;
+        }
+        return null;
+    }
 }

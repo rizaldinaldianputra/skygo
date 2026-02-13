@@ -8,4 +8,6 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     List<Order> findByUserIdOrderByCreatedAtDesc(Long userId);
 
     List<Order> findByDriverIdOrderByCreatedAtDesc(Long driverId);
+
+    List<Order> findByStatusOrderByCreatedAtDesc(com.skygo.model.OrderStatus status);
 }

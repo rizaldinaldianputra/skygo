@@ -1,76 +1,141 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" id="Definitions_1" targetNamespace="http://bpmn.io/schema/bpmn" exporter="Camunda Modeler" exporterVersion="4.6.0">
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" id="Definitions_1" targetNamespace="http://bpmn.io/schema/bpmn" exporter="Camunda Modeler" exporterVersion="5.40.1">
   <bpmn:process id="order_process" name="Order Process" isExecutable="true" camunda:historyTimeToLive="P180D">
     <bpmn:startEvent id="StartEvent_1" name="Order Created">
       <bpmn:outgoing>Flow_1</bpmn:outgoing>
     </bpmn:startEvent>
-    <bpmn:sequenceFlow id="Flow_1" sourceRef="StartEvent_1" targetRef="Task_PublishCreated" />
     <bpmn:serviceTask id="Task_PublishCreated" name="Publish Order Created" camunda:delegateExpression="${publishOrderCreatedDelegate}">
       <bpmn:incoming>Flow_1</bpmn:incoming>
       <bpmn:outgoing>Flow_2</bpmn:outgoing>
     </bpmn:serviceTask>
-    <bpmn:sequenceFlow id="Flow_2" sourceRef="Task_PublishCreated" targetRef="Task_WaitForDriver" />
     <bpmn:userTask id="Task_WaitForDriver" name="Wait for Driver Acceptance" camunda:candidateGroups="driver">
       <bpmn:incoming>Flow_2</bpmn:incoming>
       <bpmn:outgoing>Flow_3</bpmn:outgoing>
     </bpmn:userTask>
-    <bpmn:sequenceFlow id="Flow_3" sourceRef="Task_WaitForDriver" targetRef="Task_ProcessAcceptance" />
     <bpmn:serviceTask id="Task_ProcessAcceptance" name="Process Driver Acceptance" camunda:delegateExpression="${processDriverAcceptanceDelegate}">
       <bpmn:incoming>Flow_3</bpmn:incoming>
       <bpmn:outgoing>Flow_4</bpmn:outgoing>
     </bpmn:serviceTask>
-    <bpmn:sequenceFlow id="Flow_4" sourceRef="Task_ProcessAcceptance" targetRef="Task_WaitForArrival" />
-    
-    <!-- New Steps -->
     <bpmn:userTask id="Task_WaitForArrival" name="Wait for Driver Arrival" camunda:candidateGroups="driver">
       <bpmn:incoming>Flow_4</bpmn:incoming>
       <bpmn:outgoing>Flow_5</bpmn:outgoing>
     </bpmn:userTask>
-    <bpmn:sequenceFlow id="Flow_5" sourceRef="Task_WaitForArrival" targetRef="Task_ProcessArrival" />
-    
     <bpmn:serviceTask id="Task_ProcessArrival" name="Process Driver Arrival" camunda:delegateExpression="${processDriverArrivalDelegate}">
       <bpmn:incoming>Flow_5</bpmn:incoming>
       <bpmn:outgoing>Flow_6</bpmn:outgoing>
     </bpmn:serviceTask>
-    <bpmn:sequenceFlow id="Flow_6" sourceRef="Task_ProcessArrival" targetRef="Task_WaitForPickup" />
-
     <bpmn:userTask id="Task_WaitForPickup" name="Wait for Pickup (Start Trip)" camunda:candidateGroups="driver">
       <bpmn:incoming>Flow_6</bpmn:incoming>
       <bpmn:outgoing>Flow_7</bpmn:outgoing>
     </bpmn:userTask>
-    <bpmn:sequenceFlow id="Flow_7" sourceRef="Task_WaitForPickup" targetRef="Task_ProcessPickup" />
-
     <bpmn:serviceTask id="Task_ProcessPickup" name="Process Driver Pickup" camunda:delegateExpression="${processDriverPickupDelegate}">
       <bpmn:incoming>Flow_7</bpmn:incoming>
       <bpmn:outgoing>Flow_8</bpmn:outgoing>
     </bpmn:serviceTask>
-    <bpmn:sequenceFlow id="Flow_8" sourceRef="Task_ProcessPickup" targetRef="Task_WaitForDropoff" />
-
     <bpmn:userTask id="Task_WaitForDropoff" name="Wait for Dropoff (Complete Trip)" camunda:candidateGroups="driver">
       <bpmn:incoming>Flow_8</bpmn:incoming>
       <bpmn:outgoing>Flow_9</bpmn:outgoing>
     </bpmn:userTask>
-    <bpmn:sequenceFlow id="Flow_9" sourceRef="Task_WaitForDropoff" targetRef="Task_ProcessCompletion" />
-
     <bpmn:serviceTask id="Task_ProcessCompletion" name="Process Ride Completion" camunda:delegateExpression="${processRideCompletionDelegate}">
       <bpmn:incoming>Flow_9</bpmn:incoming>
       <bpmn:outgoing>Flow_10</bpmn:outgoing>
     </bpmn:serviceTask>
-    <bpmn:sequenceFlow id="Flow_10" sourceRef="Task_ProcessCompletion" targetRef="EndEvent_1" />
-
     <bpmn:endEvent id="EndEvent_1" name="Order Completed">
       <bpmn:incoming>Flow_10</bpmn:incoming>
     </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_1" sourceRef="StartEvent_1" targetRef="Task_PublishCreated" />
+    <bpmn:sequenceFlow id="Flow_2" sourceRef="Task_PublishCreated" targetRef="Task_WaitForDriver" />
+    <bpmn:sequenceFlow id="Flow_3" sourceRef="Task_WaitForDriver" targetRef="Task_ProcessAcceptance" />
+    <bpmn:sequenceFlow id="Flow_4" sourceRef="Task_ProcessAcceptance" targetRef="Task_WaitForArrival" />
+    <bpmn:sequenceFlow id="Flow_5" sourceRef="Task_WaitForArrival" targetRef="Task_ProcessArrival" />
+    <bpmn:sequenceFlow id="Flow_6" sourceRef="Task_ProcessArrival" targetRef="Task_WaitForPickup" />
+    <bpmn:sequenceFlow id="Flow_7" sourceRef="Task_WaitForPickup" targetRef="Task_ProcessPickup" />
+    <bpmn:sequenceFlow id="Flow_8" sourceRef="Task_ProcessPickup" targetRef="Task_WaitForDropoff" />
+    <bpmn:sequenceFlow id="Flow_9" sourceRef="Task_WaitForDropoff" targetRef="Task_ProcessCompletion" />
+    <bpmn:sequenceFlow id="Flow_10" sourceRef="Task_ProcessCompletion" targetRef="EndEvent_1" />
   </bpmn:process>
   <bpmndi:BPMNDiagram id="BPMNDiagram_1">
     <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="order_process">
-      <!-- Diagram details omitted/simplified as they are for visualization -->
-      <bpmndi:BPMNShape id="_BPMNShape_StartEvent_2" bpmnElement="StartEvent_1">
-        <dc:Bounds x="179" y="99" width="36" height="36" />
+      <bpmndi:BPMNShape id="StartEvent_1_di" bpmnElement="StartEvent_1">
+        <dc:Bounds x="170" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="153" y="136" width="71" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_PublishCreated_di" bpmnElement="Task_PublishCreated">
+        <dc:Bounds x="250" y="80" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_WaitForDriver_di" bpmnElement="Task_WaitForDriver">
+        <dc:Bounds x="240" y="260" width="140" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_ProcessAcceptance_di" bpmnElement="Task_ProcessAcceptance">
+        <dc:Bounds x="240" y="460" width="140" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_WaitForArrival_di" bpmnElement="Task_WaitForArrival">
+        <dc:Bounds x="460" y="150" width="140" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_ProcessArrival_di" bpmnElement="Task_ProcessArrival">
+        <dc:Bounds x="650" y="150" width="140" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_ProcessPickup_di" bpmnElement="Task_ProcessPickup">
+        <dc:Bounds x="837" y="407" width="150" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_WaitForDropoff_di" bpmnElement="Task_WaitForDropoff">
+        <dc:Bounds x="1063" y="407" width="160" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_ProcessCompletion_di" bpmnElement="Task_ProcessCompletion">
+        <dc:Bounds x="1063" y="150" width="160" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_WaitForPickup_di" bpmnElement="Task_WaitForPickup">
+        <dc:Bounds x="832" y="150" width="160" height="80" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="EndEvent_1_di" bpmnElement="EndEvent_1">
-        <dc:Bounds x="1500" y="99" width="36" height="36" /> <!-- Moved further right -->
+        <dc:Bounds x="1332" y="170" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1308" y="206" width="85" height="14" />
+        </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_1_di" bpmnElement="Flow_1">
+        <di:waypoint x="206" y="118" />
+        <di:waypoint x="250" y="118" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_2_di" bpmnElement="Flow_2">
+        <di:waypoint x="310" y="160" />
+        <di:waypoint x="310" y="260" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_3_di" bpmnElement="Flow_3">
+        <di:waypoint x="310" y="340" />
+        <di:waypoint x="310" y="460" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_4_di" bpmnElement="Flow_4">
+        <di:waypoint x="380" y="498" />
+        <di:waypoint x="530" y="498" />
+        <di:waypoint x="530" y="230" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_5_di" bpmnElement="Flow_5">
+        <di:waypoint x="600" y="188" />
+        <di:waypoint x="650" y="188" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_6_di" bpmnElement="Flow_6">
+        <di:waypoint x="790" y="188" />
+        <di:waypoint x="832" y="188" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_7_di" bpmnElement="Flow_7">
+        <di:waypoint x="912" y="230" />
+        <di:waypoint x="912" y="407" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_8_di" bpmnElement="Flow_8">
+        <di:waypoint x="987" y="445" />
+        <di:waypoint x="1063" y="445" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_9_di" bpmnElement="Flow_9">
+        <di:waypoint x="1143" y="407" />
+        <di:waypoint x="1143" y="230" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_10_di" bpmnElement="Flow_10">
+        <di:waypoint x="1223" y="188" />
+        <di:waypoint x="1332" y="188" />
+      </bpmndi:BPMNEdge>
     </bpmndi:BPMNPlane>
   </bpmndi:BPMNDiagram>
 </bpmn:definitions>

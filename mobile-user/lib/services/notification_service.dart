@@ -18,11 +18,19 @@ class NotificationService {
     );
 
     // Get FCM Token
-    String? token = await _firebaseMessaging!.getToken();
-    print("FCM Token: $token");
-    if (token != null) {
+    try {
+      final token = await _firebaseMessaging?.getToken();
+      if (token == null || token.isEmpty) {
+        // FCM tidak tersedia (device tanpa Google Play)
+        print("FCM not available, skip");
+        return;
+      }
+
+      print("FCM Token: $token");
       await _sessionManager.saveFcmToken(token);
-      // Ideally sends to backend here or after login
+    } catch (e) {
+      // Jangan crash app
+      print("FCM error, skipped: $e");
     }
 
     // Handle background messages

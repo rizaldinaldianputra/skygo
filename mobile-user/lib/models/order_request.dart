@@ -6,6 +6,9 @@ class OrderRequest {
   final String destinationAddress;
   final double destinationLat;
   final double destinationLng;
+  final String vehicleType;
+  final String paymentMethod;
+  final String? paymentProofUrl;
 
   OrderRequest({
     required this.userId,
@@ -15,6 +18,9 @@ class OrderRequest {
     required this.destinationAddress,
     required this.destinationLat,
     required this.destinationLng,
+    required this.vehicleType,
+    this.paymentMethod = 'CASH', // Default
+    this.paymentProofUrl,
   });
 
   Map<String, dynamic> toJson() {
@@ -26,6 +32,9 @@ class OrderRequest {
       'destinationAddress': destinationAddress,
       'destinationLat': destinationLat,
       'destinationLng': destinationLng,
+      'vehicleType': vehicleType,
+      'paymentMethod': paymentMethod,
+      'paymentProofUrl': paymentProofUrl,
     };
   }
 }

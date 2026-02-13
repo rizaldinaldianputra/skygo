@@ -1,4 +1,3 @@
-import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { LayoutDashboard, Car, Users, LogOut } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
@@ -11,6 +10,11 @@ const Sidebar = () => {
         { name: 'Monitoring', path: '/monitoring', icon: <Car size={20} /> },
         { name: 'Drivers', path: '/drivers', icon: <Users size={20} /> },
         { name: 'Users', path: '/users', icon: <Users size={20} /> },
+        { name: 'Promos', path: '/promos', icon: <LayoutDashboard size={20} /> },
+        { name: 'Banners', path: '/banners', icon: <LayoutDashboard size={20} /> },
+        { name: 'News', path: '/news', icon: <LayoutDashboard size={20} /> },
+        { name: 'Services', path: '/services', icon: <LayoutDashboard size={20} /> },
+        { name: 'Payment Methods', path: '/payment-methods', icon: <LayoutDashboard size={20} /> },
     ];
 
     return (

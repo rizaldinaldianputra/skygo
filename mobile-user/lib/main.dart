@@ -5,9 +5,11 @@ import 'pages/dashboard_page.dart';
 import 'session/session_manager.dart';
 import 'services/notification_service.dart'; // Ensure this import is present for NotificationService
 
+import 'firebase_options.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   await NotificationService().initialize();
   runApp(const SkyGoUserApp());
 }

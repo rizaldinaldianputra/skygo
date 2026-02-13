@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:dio/dio.dart';
 import 'package:http_parser/http_parser.dart';
 import '../core/dio_client.dart';
@@ -34,9 +35,7 @@ class AuthService {
       if (response.statusCode == 200) {
         final body = response.data;
         if (body is Map && body['status'] == true) {
-          // Changed to 'status' based on backend code
           final data = body['data'];
-          // Check if data is null
           if (data == null) {
             ToastService.showError("Login failed: No data received");
             return false;
@@ -48,13 +47,18 @@ class AuthService {
 
           await _sessionManager.saveSession(token, userId, name);
 
-          // Send FCM Token
-          final fcmToken = await _sessionManager
-              .getToken(); // Logic needs check, usually FCM token comes from Firebase
-          // Assuming fcmToken is retrieved elsewhere or stored in session
-          if (fcmToken != null) {
-            updateFcmToken(userId, fcmToken);
+          // Get FCM Token from Firebase
+          try {
+            String? fcmToken = await FirebaseMessaging.instance.getToken();
+            if (fcmToken != null) {
+              print("FCM Token: $fcmToken");
+              await updateFcmToken(userId, fcmToken);
+              await _sessionManager.saveFcmToken(fcmToken);
+            }
+          } catch (e) {
+            print("Error getting FCM token: $e");
           }
+
           return true;
         } else {
           ToastService.showError(body['message'] ?? "Login failed");
@@ -62,7 +66,7 @@ class AuthService {
       }
       return false;
     } catch (e) {
-      // Error handled by Interceptor
+      print("Login Err: $e");
       return false;
     }
   }

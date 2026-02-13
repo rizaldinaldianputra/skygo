@@ -34,11 +34,19 @@ public class Order {
     private double distanceKm;
     private double estimatedPrice;
 
+    // CAR or MOTOR
+    private String serviceType;
+
+    // CASH, WALLET, etc.
+    private String paymentMethod;
+
     @Enumerated(EnumType.STRING)
     private OrderStatus status = OrderStatus.REQUESTED;
 
     private Integer rating; // 1-5
     private String feedback;
+
+    private String paymentProofUrl;
 
     @CreationTimestamp
     private LocalDateTime createdAt;

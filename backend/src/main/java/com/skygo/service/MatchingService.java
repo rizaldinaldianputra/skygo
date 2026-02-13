@@ -59,15 +59,29 @@ public class MatchingService {
             for (String driverIdStr : nearbyDrivers) {
                 Long driverId = Long.parseLong(driverIdStr);
 
-                // Send Order Request to Driver via WebSocket
-                messagingTemplate.convertAndSend("/topic/driver/" + driverIdStr + "/orders", order);
-
-                // Send FCM
                 driverRepository.findById(driverId).ifPresent(driver -> {
+                    // Filter by Vehicle Type (if specified in order)
+                    if (order.getServiceType() != null &&
+                            !order.getServiceType().equalsIgnoreCase(driver.getVehicleType())) {
+                        return;
+                    }
+
+                    // Send Order Request to Driver via WebSocket
+                    messagingTemplate.convertAndSend("/topic/driver/" + driverIdStr + "/orders", order);
+
+                    // Send FCM
+                    java.util.Map<String, String> data = new java.util.HashMap<>();
+                    data.put("orderId", String.valueOf(order.getId()));
+                    data.put("pickupAddress", order.getPickupAddress());
+                    data.put("destinationAddress", order.getDestinationAddress());
+                    data.put("price", String.valueOf(order.getEstimatedPrice()));
+                    data.put("distance", String.valueOf(order.getDistanceKm()));
+
                     fcmService.sendNotification(
                             driver.getFcmToken(),
                             "New Order Available!",
-                            "Pickup at: " + order.getPickupAddress());
+                            "Pickup at: " + order.getPickupAddress(),
+                            data);
                 });
             }
         }

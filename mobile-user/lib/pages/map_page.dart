@@ -6,15 +6,19 @@ import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter_typeahead/flutter_typeahead.dart';
 import '../models/order_request.dart';
+import '../models/order_model.dart';
 import '../services/order_service.dart';
 import '../services/location_service.dart';
-import '../services/auth_service.dart'; // Import if needed for auth check
 import '../session/session_manager.dart';
 import 'package:dio/dio.dart';
 import 'waiting_driver_page.dart';
+import '../component/payment_method_selector.dart';
+import 'dart:io';
 
 class MapPage extends StatefulWidget {
-  const MapPage({Key? key}) : super(key: key);
+  final String vehicleType;
+
+  const MapPage({Key? key, this.vehicleType = 'MOTOR'}) : super(key: key);
 
   @override
   _MapPageState createState() => _MapPageState();
@@ -39,6 +43,7 @@ class _MapPageState extends State<MapPage> {
 
   bool _isLoading = true;
   bool _isPickupFocused = false;
+  String _selectedPaymentMethod = 'CASH';
 
   @override
   void initState() {
@@ -147,10 +152,14 @@ class _MapPageState extends State<MapPage> {
 
       // Fit bounds
       if (points.isNotEmpty) {
-        LatLngBounds bounds = LatLngBounds.fromPoints(points);
-        _mapController.fitCamera(
-          CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(50)),
-        );
+        try {
+          LatLngBounds bounds = LatLngBounds.fromPoints(points);
+          _mapController.fitCamera(
+            CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(50)),
+          );
+        } catch (e) {
+          debugPrint("Error fitting bounds: $e");
+        }
       }
 
       // Call Backend for Price Estimate
@@ -178,141 +187,211 @@ class _MapPageState extends State<MapPage> {
     }
   }
 
+  File? _paymentProofImage;
+
   void _showOrderConfirmation() {
     showModalBottomSheet(
       context: context,
       isDismissible: true,
       enableDrag: true,
+      isScrollControlled:
+          true, // Important for full height or keyboard handling
       builder: (context) {
-        return Container(
-          padding: const EdgeInsets.all(20),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(20),
-              topRight: Radius.circular(20),
-            ),
-            boxShadow: [BoxShadow(blurRadius: 10, color: Colors.black12)],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                "Konfirmasi Pesanan",
-                style: Theme.of(context).textTheme.titleLarge,
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setModalState) {
+            return Container(
+              padding: const EdgeInsets.all(20),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(20),
+                  topRight: Radius.circular(20),
+                ),
+                boxShadow: [BoxShadow(blurRadius: 10, color: Colors.black12)],
               ),
-              const SizedBox(height: 20),
-              // Addresses
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(Icons.my_location, color: Colors.green),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
+              child: SingleChildScrollView(
+                // Fix overflow
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Konfirmasi Pesanan",
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    const SizedBox(height: 20),
+                    // Addresses
+                    Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          "Lokasi Jemput",
-                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                        const Icon(Icons.my_location, color: Colors.green),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                "Lokasi Jemput",
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                              Text(
+                                _pickupController.text,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
+                      ],
+                    ),
+                    const SizedBox(height: 15),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.location_on, color: Colors.red),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                "Tujuan",
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                              Text(
+                                _destinationController.text,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Divider(height: 30),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text("Jarak"),
                         Text(
-                          _pickupController.text,
+                          "${_distanceKm.toStringAsFixed(1)} km",
                           style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                       ],
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 15),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(Icons.location_on, color: Colors.red),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    const SizedBox(height: 10),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
-                          "Tujuan",
-                          style: TextStyle(fontSize: 12, color: Colors.grey),
-                        ),
+                        const Text("Harga Estimasi"),
                         Text(
-                          _destinationController.text,
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                          "Rp ${_price.toStringAsFixed(0)}",
+                          style: const TextStyle(
+                            fontSize: 18,
+                            color: Colors.green,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ],
                     ),
-                  ),
-                ],
-              ),
-              const Divider(height: 30),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text("Jarak"),
-                  Text(
-                    "${_distanceKm.toStringAsFixed(1)} km",
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text("Harga Estimasi"),
-                  Text(
-                    "Rp ${_price.toStringAsFixed(0)}",
-                    style: const TextStyle(
-                      fontSize: 18,
-                      color: Colors.green,
-                      fontWeight: FontWeight.bold,
+                    const SizedBox(height: 20),
+                    const Divider(),
+                    PaymentMethodSelector(
+                      selectedMethod: _selectedPaymentMethod,
+                      onMethodSelected: (method) {
+                        setModalState(() {
+                          _selectedPaymentMethod = method;
+                        });
+                      },
+                      onImageSelected: (file) {
+                        setModalState(() {
+                          _paymentProofImage = file;
+                        });
+                      },
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _createOrder,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                    padding: const EdgeInsets.symmetric(vertical: 15),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _createOrder,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          padding: const EdgeInsets.symmetric(vertical: 15),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: const Text(
+                          "Oke Lanjut",
+                          style: TextStyle(color: Colors.white, fontSize: 16),
+                        ),
+                      ),
                     ),
-                  ),
-                  child: const Text(
-                    "Oke Lanjut",
-                    style: TextStyle(color: Colors.white, fontSize: 16),
-                  ),
+                  ],
                 ),
               ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
+  }
+
+  Future<String?> _uploadPaymentProof(File file) async {
+    try {
+      String fileName = file.path.split('/').last;
+      FormData formData = FormData.fromMap({
+        // 'payment-proofs' folder is harcoded in backend for now or we can pass it
+        "file": await MultipartFile.fromFile(file.path, filename: fileName),
+      });
+
+      // Adjust generic base URL if needed, assuming ApiConfig.baseUrl is available or hardcode
+      // Using hardcode for now based on snippet context (localhost for emulator)
+      // String baseUrl = "http://10.0.2.2:8080/api";
+      // Better to reuse existing dio logic if possible, but for file upload simpler specifically
+
+      Response response = await Dio().post(
+        "http://10.0.2.2:8080/api/files/upload",
+        data: formData,
+      );
+
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        return response.data['data']; // The URL
+      }
+      return null;
+    } catch (e) {
+      print("Upload error: $e");
+      return null;
+    }
   }
 
   void _createOrder() async {
     Navigator.pop(context); // Close sheet
     setState(() => _isLoading = true);
 
-    // Get user ID from session
-    final sessionManager = SessionManager(); // Or inject
-    // Assuming SessionManager has getUserId method, or we get it from token/saved session
-    // Let's add getUserId to SessionManager if missing, or use a heuristic.
-    // For now, I will use a placeholder that tries to get it.
-    // Actually, SessionManager.saveSession saves (token, userId, name).
-    // I should add getUserId to SessionManager or read it.
+    String? proofUrl;
+    if (_paymentProofImage != null) {
+      proofUrl = await _uploadPaymentProof(_paymentProofImage!);
+      if (proofUrl == null) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Failed to upload payment proof. Order cancelled."),
+          ),
+        );
+        return;
+      }
+    }
 
-    // Changing to read from SessionManager
+    final sessionManager = SessionManager();
     String? userIdStr = await sessionManager.getUserId();
     int userId = userIdStr != null ? int.parse(userIdStr) : 1;
 
@@ -324,19 +403,22 @@ class _MapPageState extends State<MapPage> {
       destinationAddress: _destinationController.text,
       destinationLat: _destinationLocation!.latitude,
       destinationLng: _destinationLocation!.longitude,
+      vehicleType: widget.vehicleType,
+      paymentMethod: _selectedPaymentMethod,
+      paymentProofUrl: proofUrl,
     );
 
     try {
-      bool success = await _orderService.createOrder(request);
+      Order? order = await _orderService.createOrder(request);
       setState(() => _isLoading = false);
 
-      if (mounted && success) {
+      if (mounted && order != null) {
         // Navigate to Waiting Page
-        Navigator.push(
+        Navigator.pushReplacement(
           context,
           MaterialPageRoute(
             builder: (context) => WaitingDriverPage(
-              orderId: 0, // Placeholder
+              orderId: order.id,
               pickup: _pickupLocation!,
               destination: _destinationLocation!,
             ),

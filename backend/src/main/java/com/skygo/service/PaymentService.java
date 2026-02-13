@@ -28,8 +28,9 @@ public class PaymentService {
         Payment payment = new Payment();
         payment.setOrder(order);
         payment.setAmount(order.getEstimatedPrice());
-        payment.setPaymentMethod(PaymentMethod.CASH); // Force CASH or use request.getPaymentMethod() if validates to
-                                                      // CASH
+        payment.setPaymentMethod(PaymentMethodType.CASH); // Force CASH or use request.getPaymentMethod() if validates
+                                                          // to
+        // CASH
         payment.setStatus(PaymentStatus.PENDING);
 
         // Since we only support CASH now

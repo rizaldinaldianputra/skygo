@@ -15,6 +15,12 @@ class Order {
   final String? feedback;
   final String createdAt;
 
+  // Driver Details
+  final String? driverName;
+  final String? driverVehicle;
+  final String? driverPlate;
+  final double? driverRating;
+
   Order({
     required this.id,
     required this.userId,
@@ -31,27 +37,51 @@ class Order {
     this.rating,
     this.feedback,
     required this.createdAt,
+    this.driverName,
+    this.driverVehicle,
+    this.driverPlate,
+    this.driverRating,
   });
+
+  static double _toDouble(dynamic value) {
+    if (value == null) return 0.0;
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is String) return double.tryParse(value) ?? 0.0;
+    return 0.0;
+  }
 
   factory Order.fromJson(Map<String, dynamic> json) {
     return Order(
       id: json['id'],
-      userId: json['user']['id'], // Assuming User object is nested
-      driverId: json['driver'] != null
+      userId: json['user'] is Map ? json['user']['id'] : (json['userId'] ?? 0),
+      driverId: json['driver'] != null && json['driver'] is Map
           ? json['driver']['id']
-          : null, // Assuming Driver object is nested
-      pickupAddress: json['pickupAddress'],
-      pickupLat: json['pickupLat'],
-      pickupLng: json['pickupLng'],
-      destinationAddress: json['destinationAddress'],
-      destinationLat: json['destinationLat'],
-      destinationLng: json['destinationLng'],
-      distanceKm: json['distanceKm'],
-      estimatedPrice: json['estimatedPrice'],
-      status: json['status'],
+          : null,
+      driverName: json['driver'] != null && json['driver'] is Map
+          ? json['driver']['name']
+          : null,
+      driverVehicle: json['driver'] != null && json['driver'] is Map
+          ? json['driver']['vehicleType']
+          : null,
+      driverPlate: json['driver'] != null && json['driver'] is Map
+          ? json['driver']['vehiclePlate']
+          : null,
+      driverRating: json['driver'] != null && json['driver'] is Map
+          ? _toDouble(json['driver']['rating'])
+          : null,
+      pickupAddress: json['pickupAddress'] ?? '',
+      pickupLat: _toDouble(json['pickupLat']),
+      pickupLng: _toDouble(json['pickupLng']),
+      destinationAddress: json['destinationAddress'] ?? '',
+      destinationLat: _toDouble(json['destinationLat']),
+      destinationLng: _toDouble(json['destinationLng']),
+      distanceKm: _toDouble(json['distanceKm']),
+      estimatedPrice: _toDouble(json['estimatedPrice']),
+      status: json['status'] ?? 'UNKNOWN',
       rating: json['rating'],
       feedback: json['feedback'],
-      createdAt: json['createdAt'],
+      createdAt: json['createdAt'] ?? '',
     );
   }
 }

@@ -11,4 +11,7 @@ public class CreateOrderRequest {
     private String destinationAddress;
     private double destinationLat;
     private double destinationLng;
+    private String vehicleType; // MOTOR or CAR
+    private String paymentMethod; // CASH or WALLET
+    private String paymentProofUrl;
 }

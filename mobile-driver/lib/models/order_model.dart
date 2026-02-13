@@ -1,6 +1,25 @@
+class User {
+  final int id;
+  final String name;
+  final String? phone;
+  final String email;
+
+  User({required this.id, required this.name, this.phone, required this.email});
+
+  factory User.fromJson(Map<String, dynamic> json) {
+    return User(
+      id: json['id'],
+      name: json['name'],
+      phone: json['phone'],
+      email: json['email'],
+    );
+  }
+}
+
 class Order {
   final int id;
   final int userId;
+  final User? user;
   final int? driverId;
   final String pickupAddress;
   final double pickupLat;
@@ -18,6 +37,7 @@ class Order {
   Order({
     required this.id,
     required this.userId,
+    this.user,
     this.driverId,
     required this.pickupAddress,
     required this.pickupLat,
@@ -37,15 +57,22 @@ class Order {
     return Order(
       id: json['id'],
       userId: json['user']['id'],
-      driverId: json['driver'] != null ? json['driver']['id'] : null,
+      user: json['user'] != null ? User.fromJson(json['user']) : null,
+      driverId: json['driver'] != null
+          ? json['driver']['id']
+          : null, // Handle null driver object or id
       pickupAddress: json['pickupAddress'],
       pickupLat: json['pickupLat'],
       pickupLng: json['pickupLng'],
       destinationAddress: json['destinationAddress'],
       destinationLat: json['destinationLat'],
       destinationLng: json['destinationLng'],
-      distanceKm: json['distanceKm'],
-      estimatedPrice: json['estimatedPrice'],
+      distanceKm: (json['distanceKm'] is int)
+          ? (json['distanceKm'] as int).toDouble()
+          : json['distanceKm'],
+      estimatedPrice: (json['estimatedPrice'] is int)
+          ? (json['estimatedPrice'] as int).toDouble()
+          : json['estimatedPrice'],
       status: json['status'],
       rating: json['rating'],
       feedback: json['feedback'],

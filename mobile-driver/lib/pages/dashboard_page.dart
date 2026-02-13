@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../services/tracking_service.dart';
+import '../services/order_service.dart';
 import '../session/session_manager.dart';
+import '../models/order_model.dart';
 import 'login_page.dart';
 
 class DashboardPage extends StatefulWidget {
@@ -15,53 +17,428 @@ class DashboardPage extends StatefulWidget {
 
 class _DashboardPageState extends State<DashboardPage> {
   final TrackingService _trackingService = TrackingService();
+  final OrderService _orderService = OrderService();
   final SessionManager _sessionManager = SessionManager();
+
   bool _isOnline = false;
   Timer? _trackingTimer;
-  LatLng _currentPosition = const LatLng(-6.2088, 106.8456); // Default Jakarta
+  Timer? _orderPollingTimer;
+
+  LatLng _currentPosition = const LatLng(-6.2088, 106.8456);
   final MapController _mapController = MapController();
 
+  List<LatLng> _routePoints = [];
+  List<Order> _availableOrders = [];
+  Set<int> _seenOrderIds = {};
+
   String _driverName = "Driver";
+
+  // Active order tracking
+  Order? _activeOrder;
+  LatLng? _activeOrderPickup;
+  LatLng? _activeOrderDestination;
 
   @override
   void initState() {
     super.initState();
     _loadDriverInfo();
     _getCurrentLocation();
+    _startOrderPolling();
+  }
+
+  void _startOrderPolling() {
+    _fetchOrders();
+    _orderPollingTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      if (_isOnline && _activeOrder == null) {
+        _fetchOrders();
+      }
+    });
+  }
+
+  Future<void> _fetchOrders() async {
+    try {
+      final orders = await _orderService.getAvailableOrders();
+      if (!mounted) return;
+
+      // Detect new orders and show dialog
+      for (var order in orders) {
+        if (!_seenOrderIds.contains(order.id)) {
+          _seenOrderIds.add(order.id);
+          if (_isOnline && _activeOrder == null) {
+            _showNewOrderDialog(order);
+          }
+        }
+      }
+
+      setState(() {
+        _availableOrders = orders;
+      });
+    } catch (e) {
+      print("Error fetching orders: $e");
+    }
+  }
+
+  void _showNewOrderDialog(Order order) async {
+    // Calculate route from driver → pickup
+    List<LatLng> dialogRoutePoints = [];
+    final pickup = LatLng(order.pickupLat, order.pickupLng);
+
+    try {
+      final route = await _trackingService.getRoute(_currentPosition, pickup);
+      if (route != null) {
+        dialogRoutePoints = _trackingService.parseRouteCoordinates(route);
+      }
+    } catch (e) {
+      print("Error getting route for dialog: $e");
+    }
+
+    if (!mounted) return;
+
+    // Create a new MapController for each dialog
+    final dialogMapController = MapController();
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              const Icon(Icons.notifications_active, color: Colors.orange),
+              const SizedBox(width: 8),
+              const Expanded(child: Text("Pesanan Baru!")),
+            ],
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            height: 420,
+            child: Column(
+              children: [
+                // User & price info
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      const CircleAvatar(
+                        backgroundColor: Colors.green,
+                        child: Icon(Icons.person, color: Colors.white),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              order.user?.name ?? "Penumpang",
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                            Text(
+                              "${order.distanceKm.toStringAsFixed(1)} km",
+                              style: const TextStyle(color: Colors.grey),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.green,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          "Rp ${order.estimatedPrice.toStringAsFixed(0)}",
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+                // Route map
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: FlutterMap(
+                      mapController: dialogMapController,
+                      options: MapOptions(
+                        initialCenter: _currentPosition,
+                        initialZoom: 13.0,
+                        onMapReady: () {
+                          if (dialogRoutePoints.isNotEmpty) {
+                            try {
+                              dialogMapController.fitCamera(
+                                CameraFit.bounds(
+                                  bounds: LatLngBounds.fromPoints(
+                                    dialogRoutePoints,
+                                  ),
+                                  padding: const EdgeInsets.all(30),
+                                ),
+                              );
+                            } catch (e) {
+                              debugPrint("Error fitting dialog bounds: $e");
+                            }
+                          }
+                        },
+                      ),
+                      children: [
+                        TileLayer(
+                          urlTemplate:
+                              'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                          userAgentPackageName: 'com.skycosmic.driver',
+                        ),
+                        if (dialogRoutePoints.isNotEmpty)
+                          PolylineLayer(
+                            polylines: [
+                              Polyline(
+                                points: dialogRoutePoints,
+                                strokeWidth: 4.0,
+                                color: Colors.blue,
+                              ),
+                            ],
+                          ),
+                        MarkerLayer(
+                          markers: [
+                            Marker(
+                              point: _currentPosition,
+                              width: 40,
+                              height: 40,
+                              child: const Icon(
+                                Icons.navigation,
+                                color: Colors.blue,
+                                size: 30,
+                              ),
+                            ),
+                            Marker(
+                              point: pickup,
+                              width: 40,
+                              height: 40,
+                              child: const Icon(
+                                Icons.location_on,
+                                color: Colors.red,
+                                size: 30,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                // Addresses
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.my_location,
+                      size: 14,
+                      color: Colors.green,
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        order.pickupAddress,
+                        style: const TextStyle(fontSize: 11),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    const Icon(Icons.location_on, size: 14, color: Colors.red),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        order.destinationAddress,
+                        style: const TextStyle(fontSize: 11),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text("Tolak", style: TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _acceptOrder(order);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              ),
+              child: const Text(
+                "Terima Pesanan",
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _acceptOrder(Order order) async {
+    bool success = await _orderService.acceptOrder(order.id);
+    if (!mounted) return;
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Pesanan diterima! Menuju lokasi jemput..."),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      final pickup = LatLng(order.pickupLat, order.pickupLng);
+      final destination = LatLng(order.destinationLat, order.destinationLng);
+
+      setState(() {
+        _activeOrder = order;
+        _activeOrderPickup = pickup;
+        _activeOrderDestination = destination;
+      });
+
+      // Draw route from current position to pickup on main map
+      _fetchRouteForMainMap(_currentPosition, pickup);
+
+      // Remove from available orders
+      _fetchOrders();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Gagal menerima pesanan."),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _fetchRouteForMainMap(LatLng from, LatLng to) async {
+    final route = await _trackingService.getRoute(from, to);
+    if (route != null && mounted) {
+      final points = _trackingService.parseRouteCoordinates(route);
+      if (points.isNotEmpty) {
+        setState(() {
+          _routePoints = points;
+        });
+        try {
+          _mapController.fitCamera(
+            CameraFit.bounds(
+              bounds: LatLngBounds.fromPoints(points),
+              padding: const EdgeInsets.all(50),
+            ),
+          );
+        } catch (e) {
+          debugPrint("Error fitting bounds: $e");
+        }
+      }
+    }
+  }
+
+  void _startTrip() async {
+    if (_activeOrder == null) return;
+    final success = await _orderService.startTrip(_activeOrder!.id);
+    if (success && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Perjalanan dimulai!"),
+          backgroundColor: Colors.blue,
+        ),
+      );
+      // Switch route to pickup → destination
+      if (_activeOrderPickup != null && _activeOrderDestination != null) {
+        _fetchRouteForMainMap(_activeOrderPickup!, _activeOrderDestination!);
+      }
+    }
+  }
+
+  void _finishTrip() async {
+    if (_activeOrder == null) return;
+    final success = await _orderService.finishTrip(_activeOrder!.id);
+    if (success && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Perjalanan selesai!"),
+          backgroundColor: Colors.green,
+        ),
+      );
+      setState(() {
+        _activeOrder = null;
+        _activeOrderPickup = null;
+        _activeOrderDestination = null;
+        _routePoints = [];
+        _seenOrderIds.clear();
+      });
+    }
   }
 
   void _loadDriverInfo() async {
     final name = await _sessionManager.getName();
-    // In a real app, we might store more info in session or fetch profile
-    // For now, using name from session.
-    setState(() {
-      _driverName = name ?? "Driver";
-    });
+    if (mounted) {
+      setState(() {
+        _driverName = name ?? "Driver";
+      });
+    }
   }
 
   @override
   void dispose() {
     _trackingTimer?.cancel();
+    _orderPollingTimer?.cancel();
     super.dispose();
   }
 
   void _toggleAvailability(bool value) async {
     bool success = await _trackingService.setAvailability(value);
-
-    if (success) {
+    if (success && mounted) {
       setState(() {
         _isOnline = value;
       });
-
       if (_isOnline) {
         _startTracking();
       } else {
         _stopTracking();
+        setState(() {
+          _routePoints = [];
+          _activeOrder = null;
+          _activeOrderPickup = null;
+          _activeOrderDestination = null;
+        });
       }
     } else {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Failed to update status")));
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("Gagal update status")));
+      }
     }
   }
 
@@ -76,20 +453,23 @@ class _DashboardPageState extends State<DashboardPage> {
     _trackingTimer?.cancel();
   }
 
+  bool _isMapReady = false;
+
   void _getCurrentLocation() async {
     final position = await _trackingService.getCurrentPosition();
-    if (position != null) {
+    if (position != null && mounted) {
       setState(() {
         _currentPosition = LatLng(position.latitude, position.longitude);
       });
-      _mapController.move(_currentPosition, 15);
+      if (_isMapReady) {
+        _mapController.move(_currentPosition, 15);
+      }
     }
   }
 
   void _sendLocationUpdate() async {
     final position = await _trackingService.getCurrentPosition();
-    if (position != null) {
-      print("Updating location: ${position.latitude}, ${position.longitude}");
+    if (position != null && mounted) {
       await _trackingService.updateLocation(
         position.latitude,
         position.longitude,
@@ -97,7 +477,6 @@ class _DashboardPageState extends State<DashboardPage> {
       setState(() {
         _currentPosition = LatLng(position.latitude, position.longitude);
       });
-      _mapController.move(_currentPosition, 15);
     }
   }
 
@@ -105,66 +484,345 @@ class _DashboardPageState extends State<DashboardPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(_driverName, style: const TextStyle(fontSize: 16)),
-            // We might need to fetch vehicle plate from profile API in future
-            // const Text("B 1234 XYZ", style: TextStyle(fontSize: 12)),
-          ],
-        ),
-        backgroundColor: _isOnline ? Colors.green : const Color(0xFF00BFFF),
+        title: Text(_isOnline ? "Online ($_driverName)" : "Offline"),
+        backgroundColor: _isOnline ? Colors.green : Colors.grey,
         actions: [
-          Row(
-            children: [
-              Text(
-                _isOnline ? "ONLINE" : "OFFLINE",
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              Switch(
-                value: _isOnline,
-                onChanged: _toggleAvailability,
-                activeColor: Colors.white,
-                activeTrackColor: Colors.lightGreenAccent,
-              ),
-            ],
+          Switch(
+            value: _isOnline,
+            onChanged: _toggleAvailability,
+            activeColor: Colors.white,
+            activeTrackColor: Colors.lightGreenAccent,
           ),
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _fetchOrders),
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () async {
               _stopTracking();
               await _trackingService.setAvailability(false);
               await _sessionManager.clearSession();
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => const LoginPage()),
-              );
+              if (mounted) {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => const LoginPage()),
+                );
+              }
             },
           ),
         ],
       ),
-      body: FlutterMap(
-        mapController: _mapController,
-        options: MapOptions(initialCenter: _currentPosition, initialZoom: 15.0),
+      body: Column(
         children: [
-          TileLayer(
-            urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-            userAgentPackageName: 'com.example.app',
-          ),
-          MarkerLayer(
-            markers: [
-              Marker(
-                point: _currentPosition,
-                width: 80,
-                height: 80,
-                child: const Icon(
-                  Icons.local_taxi,
-                  color: Colors.blue,
-                  size: 40,
+          // MAP
+          Expanded(
+            flex: _activeOrder != null ? 2 : 1,
+            child: Stack(
+              children: [
+                FlutterMap(
+                  mapController: _mapController,
+                  options: MapOptions(
+                    initialCenter: _currentPosition,
+                    initialZoom: 15.0,
+                    onMapReady: () {
+                      _isMapReady = true;
+                      if (_currentPosition.latitude != -6.2088) {
+                        _mapController.move(_currentPosition, 15);
+                      }
+                    },
+                  ),
+                  children: [
+                    TileLayer(
+                      urlTemplate:
+                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      userAgentPackageName: 'com.skycosmic.driver',
+                    ),
+                    if (_routePoints.isNotEmpty)
+                      PolylineLayer(
+                        polylines: [
+                          Polyline(
+                            points: _routePoints,
+                            strokeWidth: 4.0,
+                            color: Colors.blue,
+                          ),
+                        ],
+                      ),
+                    MarkerLayer(
+                      markers: [
+                        // Driver position
+                        Marker(
+                          point: _currentPosition,
+                          width: 60,
+                          height: 60,
+                          child: const Icon(
+                            Icons.navigation,
+                            color: Colors.blue,
+                            size: 36,
+                          ),
+                        ),
+                        // Pickup marker
+                        if (_activeOrderPickup != null)
+                          Marker(
+                            point: _activeOrderPickup!,
+                            width: 60,
+                            height: 60,
+                            child: const Column(
+                              children: [
+                                Icon(
+                                  Icons.location_on,
+                                  color: Colors.green,
+                                  size: 36,
+                                ),
+                                Text(
+                                  "Jemput",
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        // Destination marker
+                        if (_activeOrderDestination != null)
+                          Marker(
+                            point: _activeOrderDestination!,
+                            width: 60,
+                            height: 60,
+                            child: const Column(
+                              children: [
+                                Icon(
+                                  Icons.location_on,
+                                  color: Colors.red,
+                                  size: 36,
+                                ),
+                                Text(
+                                  "Tujuan",
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
                 ),
-              ),
-            ],
+
+                // Active order actions overlay
+                if (_activeOrder != null)
+                  Positioned(
+                    bottom: 16,
+                    left: 16,
+                    right: 16,
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: const [
+                          BoxShadow(color: Colors.black26, blurRadius: 8),
+                        ],
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.person, color: Colors.blue),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  _activeOrder!.user?.name ?? "Penumpang",
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ),
+                              Text(
+                                "Rp ${_activeOrder!.estimatedPrice.toStringAsFixed(0)}",
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.green,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.my_location,
+                                size: 14,
+                                color: Colors.green,
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  _activeOrder!.pickupAddress,
+                                  style: const TextStyle(fontSize: 12),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.location_on,
+                                size: 14,
+                                color: Colors.red,
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  _activeOrder!.destinationAddress,
+                                  style: const TextStyle(fontSize: 12),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  onPressed: _startTrip,
+                                  icon: const Icon(
+                                    Icons.play_arrow,
+                                    color: Colors.white,
+                                  ),
+                                  label: const Text(
+                                    "Mulai Jemput",
+                                    style: TextStyle(color: Colors.white),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.blue,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  onPressed: _finishTrip,
+                                  icon: const Icon(
+                                    Icons.check_circle,
+                                    color: Colors.white,
+                                  ),
+                                  label: const Text(
+                                    "Selesai",
+                                    style: TextStyle(color: Colors.white),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.green,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
+
+          // Available Orders List (hidden when active order)
+          if (_activeOrder == null)
+            Expanded(
+              flex: 1,
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    color: Colors.blue[100],
+                    width: double.infinity,
+                    child: const Text(
+                      "Pesanan Tersedia",
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: _availableOrders.isEmpty
+                        ? const Center(
+                            child: Text("Belum ada pesanan tersedia."),
+                          )
+                        : ListView.builder(
+                            itemCount: _availableOrders.length,
+                            itemBuilder: (context, index) {
+                              final order = _availableOrders[index];
+                              return Card(
+                                margin: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                child: ListTile(
+                                  leading: const CircleAvatar(
+                                    child: Icon(Icons.person),
+                                  ),
+                                  title: Text(
+                                    order.user?.name ?? "Penumpang",
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  subtitle: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        "Dari: ${order.pickupAddress}",
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      Text(
+                                        "Ke: ${order.destinationAddress}",
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      Text(
+                                        "Rp ${order.estimatedPrice.toStringAsFixed(0)} • ${order.distanceKm.toStringAsFixed(1)} km",
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.green,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  trailing: ElevatedButton(
+                                    onPressed: () => _acceptOrder(order),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.green,
+                                    ),
+                                    child: const Text(
+                                      "Terima",
+                                      style: TextStyle(color: Colors.white),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );

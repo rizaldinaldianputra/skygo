@@ -34,8 +34,8 @@ public class ProcessDriverArrivalDelegate implements JavaDelegate {
         // For a robust system, the Delegate should probably enforce the state if
         // called.
         // We'll update if not already updated.
-        if (order.getStatus() != OrderStatus.ARRIVED_AT_PICKUP) {
-            order.setStatus(OrderStatus.ARRIVED_AT_PICKUP);
+        if (order.getStatus() != OrderStatus.ACCEPTED) {
+            order.setStatus(OrderStatus.ACCEPTED);
             orderRepository.save(order);
         }
 

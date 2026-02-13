@@ -39,6 +39,9 @@ public class Driver {
 
     private String fcmToken;
 
+    private Double rating = 5.0;
+    private Integer ratingCount = 0;
+
     private String simUrl;
     private String ktpUrl;
     private String photoUrl;

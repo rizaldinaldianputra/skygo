@@ -5,7 +5,6 @@ import '../models/register_driver_request.dart';
 import '../services/auth_service.dart';
 import '../component/custom_button.dart';
 import '../component/custom_text_field.dart';
-import 'login_page.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({Key? key}) : super(key: key);

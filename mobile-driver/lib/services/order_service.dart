@@ -6,7 +6,10 @@ import '../models/order_model.dart';
 class OrderService {
   final Dio _dio = DioClient().dio;
 
-  // Headers are now handled by AuthInterceptor
+  /// Helper to check if response indicates success (backend uses 'status')
+  bool _isSuccess(Map<String, dynamic> data) {
+    return data['status'] == true || data['success'] == true;
+  }
 
   Future<List<Order>> getHistory(int driverId) async {
     try {
@@ -17,15 +20,13 @@ class OrderService {
 
       if (response.statusCode == 200) {
         final data = response.data;
-        if (data['success'] == true) {
-          // Changed to 'success' based on old code, but usually it's 'status' in ApiResponse. Maintaining 'success' for now if that's what was there, but typically consistent. The old code had success.
+        if (_isSuccess(data)) {
           final List list = data['data'];
           return list.map((json) => Order.fromJson(json)).toList();
         }
       }
       return [];
     } catch (e) {
-      // Error handled by Interceptor
       return [];
     }
   }
@@ -36,14 +37,74 @@ class OrderService {
 
       if (response.statusCode == 200) {
         final data = response.data;
-        if (data['success'] == true) {
+        if (_isSuccess(data)) {
           return Order.fromJson(data['data']);
         }
       }
       return null;
     } catch (e) {
-      // Error handled by Interceptor
       return null;
+    }
+  }
+
+  Future<List<Order>> getAvailableOrders() async {
+    try {
+      final response = await _dio.get('${ApiConfig.baseUrl}/orders/available');
+
+      if (response.statusCode == 200) {
+        final data = response.data;
+        if (_isSuccess(data)) {
+          final List list = data['data'];
+          return list.map((json) => Order.fromJson(json)).toList();
+        }
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<bool> acceptOrder(int orderId) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConfig.baseUrl}/orders/$orderId/accept',
+      );
+
+      if (response.statusCode == 200) {
+        final data = response.data;
+        return _isSuccess(data);
+      }
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<bool> startTrip(int orderId) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConfig.baseUrl}/orders/$orderId/start',
+      );
+      if (response.statusCode == 200) {
+        return _isSuccess(response.data);
+      }
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<bool> finishTrip(int orderId) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConfig.baseUrl}/orders/$orderId/finish',
+      );
+      if (response.statusCode == 200) {
+        return _isSuccess(response.data);
+      }
+      return false;
+    } catch (e) {
+      return false;
     }
   }
 }

@@ -8,7 +8,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class FcmService {
 
-    public void sendNotification(String token, String title, String body) {
+    public void sendNotification(String token, String title, String body, java.util.Map<String, String> data) {
         if (token == null || token.isEmpty())
             return;
 
@@ -19,18 +19,27 @@ public class FcmService {
                 return;
             }
 
-            Message message = Message.builder()
+            Message.Builder messageBuilder = Message.builder()
                     .setToken(token)
                     .setNotification(Notification.builder()
                             .setTitle(title)
                             .setBody(body)
-                            .build())
-                    .build();
+                            .build());
 
-            FirebaseMessaging.getInstance().send(message);
+            if (data != null) {
+                messageBuilder.putAllData(data);
+            }
+
+            FirebaseMessaging.getInstance().send(messageBuilder.build());
+
         } catch (Exception e) {
-            // Fallback logging if FCM fails or key is invalid
+            // Fallback logging if FCM fails or keys invalid
             System.err.println("Error sending FCM: " + e.getMessage());
         }
+    }
+
+    // Overload for backward compatibility
+    public void sendNotification(String token, String title, String body) {
+        sendNotification(token, title, body, null);
     }
 }

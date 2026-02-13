@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import '../models/login_request.dart';
 import '../models/register_user_request.dart';
 import '../session/session_manager.dart';
@@ -12,6 +13,22 @@ class AuthService {
   final String registerUserEndpoint = "/auth/user/register";
   final String userProfileEndpoint = "/users/profile";
 
+  Future<void> updateFcmToken(String userId, String fcmToken) async {
+    try {
+      // Assuming existing endpoint can handle user FCM updates or similar
+      // The backend code suggested FcmService is generic, but controllers might differ.
+      // Driver has specific endpoint. User might need one too.
+      // Based on typical patterns, users might use /users/{id}/fcm-token or similar.
+      // I will use a safe guess based on driver implementation but target users
+      await _apiService.put(
+        '/users/$userId/fcm-token',
+        queryParameters: {'token': fcmToken},
+      );
+    } catch (e) {
+      print("Error updating User FCM token: $e");
+    }
+  }
+
   Future<bool> login(LoginRequest request) async {
     try {
       final response = await _apiService.post(
@@ -21,6 +38,7 @@ class AuthService {
 
       if (response != null) {
         String token = "";
+        String userId = "1"; // Default or extracted
 
         // Handle various response structures
         if (response is Map) {
@@ -30,6 +48,9 @@ class AuthService {
               response['data'] is Map &&
               response['data'].containsKey('token')) {
             token = response['data']['token'];
+            if (response['data'].containsKey('id')) {
+              userId = response['data']['id'].toString();
+            }
           }
         } else if (response is String) {
           token = response;
@@ -37,9 +58,20 @@ class AuthService {
 
         if (token.isNotEmpty) {
           print("DEBUG: Login Successful. Token: ${token.substring(0, 10)}...");
-          // Verify if the API returns separate user info or just token
-          // For now saving token using empty strings for id/name if not provided
-          await _sessionManager.saveSession(token, "1", "User");
+
+          await _sessionManager.saveSession(token, userId, "User");
+
+          // Get FCM Token
+          try {
+            String? fcmToken = await FirebaseMessaging.instance.getToken();
+            if (fcmToken != null) {
+              print("User FCM Token: $fcmToken");
+              await updateFcmToken(userId, fcmToken);
+            }
+          } catch (e) {
+            print("Error getting User FCM token: $e");
+          }
+
           return true;
         } else {
           print("DEBUG: Login Failed. Token is empty. Response: $response");

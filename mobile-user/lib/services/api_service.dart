@@ -97,9 +97,17 @@ class ApiService {
   }
 
   // PUT
-  Future<dynamic> put(String endpoint, {dynamic body}) async {
+  Future<dynamic> put(
+    String endpoint, {
+    dynamic body,
+    Map<String, dynamic>? queryParameters,
+  }) async {
     try {
-      final response = await _dio.put(endpoint, data: body);
+      final response = await _dio.put(
+        endpoint,
+        data: body,
+        queryParameters: queryParameters,
+      );
       return _handleResponse(response);
     } catch (e) {
       print('PUT Error $endpoint: $e');

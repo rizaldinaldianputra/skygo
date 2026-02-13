@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:latlong2/latlong.dart';
 import '../core/dio_client.dart';
 import '../config/api_config.dart';
 import '../session/session_manager.dart';
@@ -83,6 +84,45 @@ class TrackingService {
       return null;
     }
 
-    return await Geolocator.getCurrentPosition();
+    return await Geolocator.getCurrentPosition(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 10,
+      ),
+    );
+  }
+
+  // Helper for Routing (OSRM)
+  final Dio _externalDio = Dio();
+  final String osrmUrl = "https://router.project-osrm.org/route/v1/driving";
+
+  Future<Map<String, dynamic>?> getRoute(LatLng start, LatLng end) async {
+    final url =
+        '$osrmUrl/${start.longitude},${start.latitude};${end.longitude},${end.latitude}?overview=full&geometries=geojson';
+
+    try {
+      final response = await _externalDio.get(url);
+      if (response.statusCode == 200) {
+        final data = response.data;
+        if (data['code'] == 'Ok' &&
+            data['routes'] != null &&
+            (data['routes'] as List).isNotEmpty) {
+          return data['routes'][0];
+        }
+      }
+      return null;
+    } catch (e) {
+      print("Routing Error: $e");
+      return null;
+    }
+  }
+
+  List<LatLng> parseRouteCoordinates(Map<String, dynamic> routeData) {
+    final geometry = routeData['geometry'];
+    final List coordinates = geometry['coordinates'];
+
+    return coordinates.map((coord) {
+      return LatLng(coord[1], coord[0]);
+    }).toList();
   }
 }

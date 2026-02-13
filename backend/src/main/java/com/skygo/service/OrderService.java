@@ -53,8 +53,8 @@ public class OrderService {
         return new com.skygo.model.dto.FareEstimateResponse(price, distance);
     }
 
-    public Order createOrder(CreateOrderRequest request) {
-        User user = userRepository.findById(request.getUserId())
+    public Order createOrder(CreateOrderRequest request, String userEmail) {
+        User user = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         double distance = calculateDistance(
@@ -72,6 +72,9 @@ public class OrderService {
         order.setDestinationLat(request.getDestinationLat());
         order.setDestinationLng(request.getDestinationLng());
         order.setDistanceKm(distance);
+        order.setServiceType(request.getVehicleType());
+        order.setPaymentMethod(request.getPaymentMethod());
+        order.setPaymentProofUrl(request.getPaymentProofUrl());
         order.setEstimatedPrice(price);
         order.setStatus(OrderStatus.REQUESTED);
 
@@ -81,8 +84,14 @@ public class OrderService {
         runtimeService.startProcessInstanceByKey("order_process", String.valueOf(saved.getId()),
                 java.util.Map.of("orderId", saved.getId()));
 
+        // TRIGGER MATCHING DIRECTLY (Fix for missing notification)
+        matchingService.findDrivers(saved);
+
         return saved;
     }
+
+    @Autowired
+    private com.skygo.service.MatchingService matchingService;
 
     @Autowired
     private DriverRepository driverRepository;
@@ -97,7 +106,7 @@ public class OrderService {
     private FcmService fcmService;
 
     @Transactional
-    public Order acceptOrder(Long orderId, Long driverId) {
+    public Order acceptOrder(Long orderId, String driverEmail) {
         // 1. Find the Camunda Task for this order
         org.camunda.bpm.engine.task.Task task = taskService.createTaskQuery()
                 .processVariableValueEquals("orderId", orderId)
@@ -108,8 +117,10 @@ public class OrderService {
             throw new RuntimeException("Order is not available for acceptance (Task not found or already taken)");
         }
 
-        Driver driver = driverRepository.findById(driverId)
+        Driver driver = driverRepository.findByEmail(driverEmail)
                 .orElseThrow(() -> new RuntimeException("Driver not found"));
+
+        Long driverId = driver.getId();
 
         // 2. Claim the task (Optimistic locking handled by Camunda)
         try {
@@ -143,6 +154,10 @@ public class OrderService {
                 "Driver " + driver.getName() + " is on the way.");
 
         return saved;
+    }
+
+    public java.util.List<Order> getAvailableOrders() {
+        return orderRepository.findByStatusOrderByCreatedAtDesc(OrderStatus.REQUESTED);
     }
 
     @Autowired

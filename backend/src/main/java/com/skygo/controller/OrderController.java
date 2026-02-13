@@ -15,16 +15,25 @@ public class OrderController {
     private OrderService orderService;
 
     @PostMapping("/create")
-    public ResponseEntity<com.skygo.model.dto.ApiResponse<Order>> createOrder(@RequestBody CreateOrderRequest request) {
-        Order order = orderService.createOrder(request);
+    public ResponseEntity<com.skygo.model.dto.ApiResponse<Order>> createOrder(@RequestBody CreateOrderRequest request,
+            @org.springframework.security.core.annotation.AuthenticationPrincipal org.springframework.security.oauth2.jwt.Jwt jwt) {
+        String email = jwt.getSubject();
+        Order order = orderService.createOrder(request, email);
         return ResponseEntity.ok(com.skygo.model.dto.ApiResponse.success("Order created", order));
     }
 
     @PostMapping("/{id}/accept")
     public ResponseEntity<com.skygo.model.dto.ApiResponse<Order>> acceptOrder(@PathVariable Long id,
-            @RequestParam Long driverId) {
-        Order order = orderService.acceptOrder(id, driverId);
+            @org.springframework.security.core.annotation.AuthenticationPrincipal org.springframework.security.oauth2.jwt.Jwt jwt) {
+        String email = jwt.getSubject(); // Driver's email from token
+        Order order = orderService.acceptOrder(id, email);
         return ResponseEntity.ok(com.skygo.model.dto.ApiResponse.success("Order accepted", order));
+    }
+
+    @GetMapping("/available")
+    public ResponseEntity<com.skygo.model.dto.ApiResponse<java.util.List<Order>>> getAvailableOrders() {
+        java.util.List<Order> orders = orderService.getAvailableOrders();
+        return ResponseEntity.ok(com.skygo.model.dto.ApiResponse.success("Available orders retrieved", orders));
     }
 
     @PostMapping("/{id}/reject")
@@ -32,6 +41,12 @@ public class OrderController {
             @RequestParam Long driverId) {
         // For simplicity, just log or trigger matching again
         return ResponseEntity.ok(com.skygo.model.dto.ApiResponse.success("Order rejected", "Order Rejected"));
+    }
+
+    @PostMapping("/{id}/cancel")
+    public ResponseEntity<com.skygo.model.dto.ApiResponse<Order>> cancelOrder(@PathVariable Long id) {
+        Order order = orderService.updateStatus(id, com.skygo.model.OrderStatus.CANCELLED);
+        return ResponseEntity.ok(com.skygo.model.dto.ApiResponse.success("Order cancelled", order));
     }
 
     @PostMapping("/{id}/start")

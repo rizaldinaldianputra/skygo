@@ -43,4 +43,14 @@ public class TrackingController {
         driverService.setDriverAvailability(id, false);
         return ResponseEntity.ok(com.skygo.model.dto.ApiResponse.success("Driver is OFFLINE", "Driver is OFFLINE"));
     }
+
+    @GetMapping("/driver/{id}/location")
+    public ResponseEntity<com.skygo.model.dto.ApiResponse<java.util.Map<String, Double>>> getDriverLocation(
+            @PathVariable Long id) {
+        java.util.Map<String, Double> location = trackingService.getDriverLocation(id);
+        if (location != null) {
+            return ResponseEntity.ok(com.skygo.model.dto.ApiResponse.success("Driver location retrieved", location));
+        }
+        return ResponseEntity.ok(com.skygo.model.dto.ApiResponse.error("Driver location not available"));
+    }
 }

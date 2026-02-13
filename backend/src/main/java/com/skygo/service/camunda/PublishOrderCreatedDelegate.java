@@ -2,7 +2,6 @@ package com.skygo.service.camunda;
 
 import com.skygo.kafka.KafkaProducerService;
 import com.skygo.model.Order;
-import com.skygo.model.OrderStatus;
 import com.skygo.repository.OrderRepository;
 import org.camunda.bpm.engine.delegate.DelegateExecution;
 import org.camunda.bpm.engine.delegate.JavaDelegate;
