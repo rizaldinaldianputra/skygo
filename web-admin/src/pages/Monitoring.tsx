@@ -1,9 +1,11 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import api from '../services/api';
-import { RefreshCw, Car, Bike, MapPin, Wifi } from 'lucide-react';
+import { RefreshCw, Car, Bike, MapPin, Wifi, Radio } from 'lucide-react';
+import SockJS from 'sockjs-client';
+import { Client } from '@stomp/stompjs';
 
 // Fix default marker icons for Leaflet + bundler
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -64,9 +66,12 @@ const Monitoring = () => {
     const [loading, setLoading] = useState(true);
     const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
     const [selectedDriver, setSelectedDriver] = useState<OnlineDriver | null>(null);
-    const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const [wsConnected, setWsConnected] = useState(false);
+    const stompClientRef = useRef<Client | null>(null);
+    const refreshIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-    const fetchOnlineDrivers = async () => {
+    // Fetch full driver list via REST (for initial load + periodic refresh)
+    const fetchOnlineDrivers = useCallback(async () => {
         try {
             const res = await api.get('/admin/online-drivers');
             if (res.data.status) {
@@ -78,15 +83,87 @@ const Monitoring = () => {
         } finally {
             setLoading(false);
         }
-    };
-
-    useEffect(() => {
-        fetchOnlineDrivers();
-        intervalRef.current = setInterval(fetchOnlineDrivers, 10000); // 10s poll
-        return () => {
-            if (intervalRef.current) clearInterval(intervalRef.current);
-        };
     }, []);
+
+    // Connect to WebSocket for real-time location updates
+    useEffect(() => {
+        // Initial fetch
+        fetchOnlineDrivers();
+
+        // Build WebSocket URL from API base URL
+        const apiBase = api.defaults.baseURL || '';
+        const url = new URL(apiBase);
+        const sockJsUrl = `${url.protocol}//${url.host}/ws-ojek`;
+
+        console.log('[Monitoring] Connecting WebSocket to', sockJsUrl);
+
+        const client = new Client({
+            webSocketFactory: () => new SockJS(sockJsUrl),
+            reconnectDelay: 5000,
+            heartbeatIncoming: 10000,
+            heartbeatOutgoing: 10000,
+            onConnect: () => {
+                console.log('[Monitoring] WebSocket connected!');
+                setWsConnected(true);
+
+                // Subscribe to all driver location updates
+                client.subscribe('/topic/drivers', (message) => {
+                    // Message format: "driverId:lat,lng"
+                    const body = message.body;
+                    const parts = body.split(':');
+                    if (parts.length === 2) {
+                        const driverId = parseInt(parts[0]);
+                        const coords = parts[1].split(',');
+                        if (coords.length === 2) {
+                            const lat = parseFloat(coords[0]);
+                            const lng = parseFloat(coords[1]);
+
+                            // Update driver location in state
+                            setDrivers(prev => {
+                                const existing = prev.find(d => d.id === driverId);
+                                if (existing) {
+                                    // Update existing driver's location
+                                    return prev.map(d =>
+                                        d.id === driverId ? { ...d, lat, lng } : d
+                                    );
+                                }
+                                // Unknown driver — will be picked up on next REST refresh
+                                return prev;
+                            });
+                            setLastUpdate(new Date());
+                        }
+                    }
+                });
+            },
+            onDisconnect: () => {
+                console.log('[Monitoring] WebSocket disconnected');
+                setWsConnected(false);
+            },
+            onStompError: (frame) => {
+                console.error('[Monitoring] STOMP error:', frame.body);
+                setWsConnected(false);
+            },
+            onWebSocketError: (error) => {
+                console.error('[Monitoring] WebSocket error:', error);
+                setWsConnected(false);
+            },
+        });
+
+        client.activate();
+        stompClientRef.current = client;
+
+        // Periodic REST refresh every 30s for driver join/leave
+        refreshIntervalRef.current = setInterval(fetchOnlineDrivers, 30000);
+
+        return () => {
+            if (stompClientRef.current) {
+                stompClientRef.current.deactivate();
+            }
+            if (refreshIntervalRef.current) {
+                clearInterval(refreshIntervalRef.current);
+            }
+        };
+    }, [fetchOnlineDrivers]);
 
     const driversWithLocation = drivers.filter(d => d.lat && d.lng);
     const onlineCount = drivers.filter(d => d.availability === 'ONLINE').length;
@@ -101,13 +178,23 @@ const Monitoring = () => {
                         Terakhir update: {lastUpdate.toLocaleTimeString('id-ID')}
                     </p>
                 </div>
-                <button
-                    onClick={fetchOnlineDrivers}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors shadow-sm text-sm font-medium"
-                >
-                    <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-                    Refresh
-                </button>
+                <div className="flex items-center gap-3">
+                    {/* WebSocket status indicator */}
+                    <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${wsConnected
+                        ? 'bg-green-50 text-green-700 border border-green-200'
+                        : 'bg-red-50 text-red-700 border border-red-200'
+                        }`}>
+                        <Radio size={12} className={wsConnected ? 'text-green-500 animate-pulse' : 'text-red-500'} />
+                        {wsConnected ? 'Real-time' : 'Disconnected'}
+                    </div>
+                    <button
+                        onClick={fetchOnlineDrivers}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors shadow-sm text-sm font-medium"
+                    >
+                        <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+                        Refresh
+                    </button>
+                </div>
             </div>
 
             {/* Stats Cards */}
