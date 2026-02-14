@@ -624,17 +624,21 @@ class _DashboardPageState extends State<DashboardPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(_isOnline ? "Online ($_driverName)" : "Offline"),
-        backgroundColor: _isOnline ? Colors.green : Colors.grey,
+        title: Text(
+          style: TextStyle(color: Colors.white),
+          _isOnline ? "Online ($_driverName)" : "Offline",
+        ),
+        backgroundColor: _isOnline ? Colors.green : Colors.red,
         actions: [
           Switch(
             value: _isOnline,
+            inactiveTrackColor: Colors.red,
             onChanged: _toggleAvailability,
             activeColor: Colors.white,
             activeTrackColor: Colors.lightGreenAccent,
           ),
           IconButton(
-            icon: const Icon(Icons.logout),
+            icon: const Icon(Icons.logout, color: Colors.white),
             onPressed: () async {
               _stopTracking();
               await _trackingService.setAvailability(false);

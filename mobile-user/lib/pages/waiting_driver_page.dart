@@ -5,6 +5,7 @@ import 'package:latlong2/latlong.dart';
 import '../services/order_service.dart';
 import '../services/location_service.dart';
 import '../models/order_model.dart';
+import 'chat_page.dart';
 
 class WaitingDriverPage extends StatefulWidget {
   final int orderId;
@@ -532,6 +533,36 @@ class _WaitingDriverPageState extends State<WaitingDriverPage> {
                           ),
                         ),
                       ],
+                    ),
+                    const SizedBox(height: 12),
+                    // Chat button
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => ChatPage(
+                                orderId: widget.orderId,
+                                driverName:
+                                    _currentOrder!.driverName ?? 'Driver',
+                              ),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.chat, color: Colors.white),
+                        label: const Text(
+                          'Chat Driver',
+                          style: TextStyle(color: Colors.white, fontSize: 16),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF00880A),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                      ),
                     ),
                   ],
                 ],

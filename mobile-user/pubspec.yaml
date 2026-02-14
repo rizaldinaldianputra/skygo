@@ -49,6 +49,7 @@ dependencies:
   flutter_typeahead: ^5.2.0
   dio: ^5.9.1
   image_picker: ^1.2.1
+  stomp_dart_client: ^2.0.0
 
 dev_dependencies:
 

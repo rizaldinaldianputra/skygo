@@ -197,6 +197,31 @@ public class AdminController {
         return ResponseEntity.ok(ApiResponse.success("Discounts fetched", discountRepository.findAll(pageable)));
     }
 
+    @PostMapping("/discounts")
+    public ResponseEntity<ApiResponse<Discount>> createDiscount(@RequestBody Discount discount) {
+        return ResponseEntity.ok(ApiResponse.success(discountRepository.save(discount)));
+    }
+
+    @PutMapping("/discounts/{id}")
+    public ResponseEntity<ApiResponse<Discount>> updateDiscount(@PathVariable Long id, @RequestBody Discount discount) {
+        Discount existing = discountRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Discount not found"));
+        existing.setCode(discount.getCode());
+        existing.setDescription(discount.getDescription());
+        existing.setDiscountType(discount.getDiscountType());
+        existing.setDiscountValue(discount.getDiscountValue());
+        existing.setMinOrderAmount(discount.getMinOrderAmount());
+        existing.setMaxUsage(discount.getMaxUsage());
+        existing.setActive(discount.isActive());
+        return ResponseEntity.ok(ApiResponse.success(discountRepository.save(existing)));
+    }
+
+    @DeleteMapping("/discounts/{id}")
+    public ResponseEntity<ApiResponse<Void>> deleteDiscount(@PathVariable Long id) {
+        discountRepository.deleteById(id);
+        return ResponseEntity.ok(ApiResponse.success("Deleted", null));
+    }
+
     // ===================== ONLINE DRIVERS (for monitoring) =====================
     @GetMapping("/online-drivers")
     public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getOnlineDriversWithLocation() {

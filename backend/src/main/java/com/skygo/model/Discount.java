@@ -19,14 +19,18 @@ public class Discount {
     @Column(unique = true, nullable = false)
     private String code;
 
-    private double amount; // Value of discount
+    private String description;
 
     @Enumerated(EnumType.STRING)
-    private DiscountType type; // FIXED or PERCENTAGE
+    private DiscountType discountType; // FIXED or PERCENTAGE
 
-    private LocalDateTime validUntil;
+    private double discountValue; // Value of discount
 
-    private boolean isActive = true;
+    private double minOrderAmount; // Minimum order amount to apply
+
+    private int maxUsage; // Maximum number of times this discount can be used
+
+    private boolean active = true;
 
     @CreationTimestamp
     private LocalDateTime createdAt;

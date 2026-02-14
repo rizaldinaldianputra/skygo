@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/order_model.dart';
 import '../services/order_service.dart';
+import 'chat_page.dart';
 
 class OrderDetailPage extends StatefulWidget {
   final int orderId;
@@ -78,10 +79,46 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
             Card(
               child: ListTile(
                 leading: const CircleAvatar(child: Icon(Icons.person)),
-                title: Text('User ID: ${_order!.userId}'),
-                // In real app, resolve User Name
+                title: Text(_order!.user?.name ?? 'User ID: ${_order!.userId}'),
+                subtitle: _order!.user?.phone != null
+                    ? Text(_order!.user!.phone!)
+                    : null,
               ),
             ),
+            // Chat button for active orders
+            if (_order!.status == 'ACCEPTED' ||
+                _order!.status == 'PICKUP' ||
+                _order!.status == 'ONGOING')
+              Padding(
+                padding: const EdgeInsets.only(top: 8.0),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => ChatPage(
+                            orderId: widget.orderId,
+                            userName: _order!.user?.name ?? 'Penumpang',
+                          ),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.chat, color: Colors.white),
+                    label: const Text(
+                      'Chat Penumpang',
+                      style: TextStyle(color: Colors.white, fontSize: 16),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1565C0),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             const SizedBox(height: 20),
 
             const Text(

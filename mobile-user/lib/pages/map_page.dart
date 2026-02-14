@@ -13,6 +13,7 @@ import '../session/session_manager.dart';
 import 'package:dio/dio.dart';
 import 'waiting_driver_page.dart';
 import '../component/payment_method_selector.dart';
+import '../component/discount_selector.dart';
 import 'dart:io';
 
 class MapPage extends StatefulWidget {
@@ -44,6 +45,8 @@ class _MapPageState extends State<MapPage> {
   bool _isLoading = true;
   bool _isPickupFocused = false;
   String _selectedPaymentMethod = 'CASH';
+  String? _selectedDiscountCode;
+  double _discountAmount = 0;
 
   @override
   void initState() {
@@ -302,6 +305,54 @@ class _MapPageState extends State<MapPage> {
                         ),
                       ],
                     ),
+                    if (_discountAmount > 0) ...[
+                      const SizedBox(height: 6),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.local_offer,
+                                size: 14,
+                                color: Colors.orange.shade700,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                "Diskon ($_selectedDiscountCode)",
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                            ],
+                          ),
+                          Text(
+                            "-Rp ${_discountAmount.toStringAsFixed(0)}",
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.red.shade700,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            "Total Bayar",
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            "Rp ${(_price - _discountAmount).clamp(0, double.infinity).toStringAsFixed(0)}",
+                            style: const TextStyle(
+                              fontSize: 18,
+                              color: Colors.green,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                     const SizedBox(height: 20),
                     const Divider(),
                     PaymentMethodSelector(
@@ -314,6 +365,16 @@ class _MapPageState extends State<MapPage> {
                       onImageSelected: (file) {
                         setModalState(() {
                           _paymentProofImage = file;
+                        });
+                      },
+                    ),
+                    DiscountSelector(
+                      selectedDiscountCode: _selectedDiscountCode,
+                      orderAmount: _price,
+                      onDiscountSelected: (code, amount) {
+                        setModalState(() {
+                          _selectedDiscountCode = code;
+                          _discountAmount = amount;
                         });
                       },
                     ),
@@ -406,6 +467,7 @@ class _MapPageState extends State<MapPage> {
       vehicleType: widget.vehicleType,
       paymentMethod: _selectedPaymentMethod,
       paymentProofUrl: proofUrl,
+      discountCode: _selectedDiscountCode,
     );
 
     try {

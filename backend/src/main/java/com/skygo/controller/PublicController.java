@@ -22,6 +22,12 @@ public class PublicController {
     @Autowired
     private NewsRepository newsRepository;
 
+    @Autowired
+    private PaymentMethodRepository paymentMethodRepository;
+
+    @Autowired
+    private DiscountRepository discountRepository;
+
     @GetMapping("/banners")
     public ResponseEntity<ApiResponse<List<Banner>>> getActiveBanners() {
         List<Banner> banners = bannerRepository.findAllByActiveTrueOrderByDisplayOrderAsc();
@@ -38,5 +44,17 @@ public class PublicController {
     public ResponseEntity<ApiResponse<List<News>>> getActiveNews() {
         List<News> news = newsRepository.findAllByActiveTrueOrderByPublishedAtDesc();
         return ResponseEntity.ok(ApiResponse.success("Active news", news));
+    }
+
+    @GetMapping("/payment-methods")
+    public ResponseEntity<ApiResponse<List<PaymentMethod>>> getActivePaymentMethods() {
+        List<PaymentMethod> methods = paymentMethodRepository.findAllByActiveTrue();
+        return ResponseEntity.ok(ApiResponse.success("Active payment methods", methods));
+    }
+
+    @GetMapping("/discounts")
+    public ResponseEntity<ApiResponse<List<Discount>>> getActiveDiscounts() {
+        List<Discount> discounts = discountRepository.findAllByActiveTrue();
+        return ResponseEntity.ok(ApiResponse.success("Active discounts", discounts));
     }
 }

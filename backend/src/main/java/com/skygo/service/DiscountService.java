@@ -35,9 +35,11 @@ public class DiscountService {
                 .orElseThrow(() -> new RuntimeException("Discount not found"));
 
         discount.setCode(discountDetails.getCode());
-        discount.setAmount(discountDetails.getAmount());
-        discount.setType(discountDetails.getType());
-        discount.setValidUntil(discountDetails.getValidUntil());
+        discount.setDescription(discountDetails.getDescription());
+        discount.setDiscountType(discountDetails.getDiscountType());
+        discount.setDiscountValue(discountDetails.getDiscountValue());
+        discount.setMinOrderAmount(discountDetails.getMinOrderAmount());
+        discount.setMaxUsage(discountDetails.getMaxUsage());
         discount.setActive(discountDetails.isActive());
 
         return discountRepository.save(discount);

@@ -44,4 +44,32 @@ class DashboardService {
       return [];
     }
   }
+
+  Future<List<Map<String, dynamic>>> getPaymentMethods() async {
+    try {
+      final response = await _apiService.get('/public/payment-methods');
+      if (response != null && response['status'] == true) {
+        final List list = response['data'] ?? [];
+        return list.cast<Map<String, dynamic>>();
+      }
+      return [];
+    } catch (e) {
+      print('Error fetching payment methods: $e');
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getDiscounts() async {
+    try {
+      final response = await _apiService.get('/public/discounts');
+      if (response != null && response['status'] == true) {
+        final List list = response['data'] ?? [];
+        return list.cast<Map<String, dynamic>>();
+      }
+      return [];
+    } catch (e) {
+      print('Error fetching discounts: $e');
+      return [];
+    }
+  }
 }
