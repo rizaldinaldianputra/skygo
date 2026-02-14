@@ -8,8 +8,9 @@ import com.skygo.model.Driver;
 import com.skygo.repository.DriverRepository;
 import com.skygo.repository.OrderRepository;
 import com.skygo.repository.UserRepository;
-import com.skygo.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,10 +24,22 @@ public class OrderService {
     private UserRepository userRepository;
 
     @Autowired
-    private org.camunda.bpm.engine.RuntimeService runtimeService;
+    private MatchingService matchingService;
 
     @Autowired
-    private org.camunda.bpm.engine.TaskService taskService;
+    private DriverRepository driverRepository;
+
+    @Autowired
+    private DriverService driverService;
+
+    @Autowired
+    private org.springframework.messaging.simp.SimpMessagingTemplate messagingTemplate;
+
+    @Autowired
+    private FcmService fcmService;
+
+    @Autowired
+    private GlobalConfigService configService;
 
     // Simple pricing strategy
     private double calculatePrice(double distanceKm) {
@@ -53,6 +66,7 @@ public class OrderService {
         return new com.skygo.model.dto.FareEstimateResponse(price, distance);
     }
 
+    @Transactional
     public Order createOrder(CreateOrderRequest request, String userEmail) {
         User user = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -80,69 +94,33 @@ public class OrderService {
 
         Order saved = orderRepository.save(order);
 
-        // Start Camunda Process
-        runtimeService.startProcessInstanceByKey("order_process", String.valueOf(saved.getId()),
-                java.util.Map.of("orderId", saved.getId()));
-
-        // TRIGGER MATCHING DIRECTLY (Fix for missing notification)
+        // Trigger driver matching directly
         matchingService.findDrivers(saved);
 
         return saved;
     }
 
-    @Autowired
-    private com.skygo.service.MatchingService matchingService;
-
-    @Autowired
-    private DriverRepository driverRepository;
-
-    @Autowired
-    private com.skygo.service.DriverService driverService;
-
-    @Autowired
-    private org.springframework.messaging.simp.SimpMessagingTemplate messagingTemplate;
-
-    @Autowired
-    private FcmService fcmService;
-
     @Transactional
     public Order acceptOrder(Long orderId, String driverEmail) {
-        // 1. Find the Camunda Task for this order
-        org.camunda.bpm.engine.task.Task task = taskService.createTaskQuery()
-                .processVariableValueEquals("orderId", orderId)
-                .taskCandidateGroup("driver")
-                .singleResult();
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Order not found"));
 
-        if (task == null) {
-            throw new RuntimeException("Order is not available for acceptance (Task not found or already taken)");
+        // Check order is still available (replaces Camunda task query)
+        if (order.getStatus() != OrderStatus.REQUESTED) {
+            throw new RuntimeException("Order is not available for acceptance (already taken or cancelled)");
         }
 
         Driver driver = driverRepository.findByEmail(driverEmail)
                 .orElseThrow(() -> new RuntimeException("Driver not found"));
 
-        Long driverId = driver.getId();
-
-        // 2. Claim the task (Optimistic locking handled by Camunda)
-        try {
-            taskService.claim(task.getId(), String.valueOf(driverId));
-        } catch (org.camunda.bpm.engine.TaskAlreadyClaimedException e) {
-            throw new RuntimeException("Order already taken by another driver");
-        }
-
-        // 3. Update Domain Model
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new RuntimeException("Order not found"));
-
+        // Update order
         order.setDriver(driver);
         order.setStatus(OrderStatus.ACCEPTED);
 
         // Update Driver Status to ON_TRIP
-        driverService.setDriverAvailability(driverId, false);
+        driverService.setDriverAvailability(driver.getId(), false);
 
         Order saved = orderRepository.save(order);
-
-        // 4. Complete the task
-        taskService.complete(task.getId(), java.util.Map.of("driverId", driverId));
 
         // Notify User via WebSocket
         messagingTemplate.convertAndSend("/topic/user/" + order.getUser().getId() + "/orders", saved);
@@ -160,8 +138,9 @@ public class OrderService {
         return orderRepository.findByStatusOrderByCreatedAtDesc(OrderStatus.REQUESTED);
     }
 
-    @Autowired
-    private GlobalConfigService configService;
+    public Page<Order> getAvailableOrders(Pageable pageable) {
+        return orderRepository.findByStatus(OrderStatus.REQUESTED, pageable);
+    }
 
     public Order updateStatus(Long orderId, OrderStatus newStatus) {
         Order order = orderRepository.findById(orderId)
@@ -202,6 +181,14 @@ public class OrderService {
             return orderRepository.findByDriverIdOrderByCreatedAtDesc(userId);
         } else {
             return orderRepository.findByUserIdOrderByCreatedAtDesc(userId);
+        }
+    }
+
+    public Page<Order> getOrderHistory(Long userId, String role, Pageable pageable) {
+        if ("DRIVER".equalsIgnoreCase(role)) {
+            return orderRepository.findByDriverId(userId, pageable);
+        } else {
+            return orderRepository.findByUserId(userId, pageable);
         }
     }
 

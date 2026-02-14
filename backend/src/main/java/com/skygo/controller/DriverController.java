@@ -10,11 +10,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import com.skygo.model.dto.ApiResponse;
-import com.skygo.model.dto.PaginatedResponse;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 
 @RestController
 @RequestMapping("/api/drivers")
@@ -71,20 +70,9 @@ public class DriverController {
     }
 
     @GetMapping("/pending/paginated")
-    public ResponseEntity<PaginatedResponse<java.util.List<Driver>>> getPendingDriversPaginated(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
-
-        Pageable pageable = PageRequest.of(page, size, Sort.by("id").descending());
-        Page<Driver> driverPage = driverService.getPendingDrivers(pageable);
-
-        return ResponseEntity.ok(new PaginatedResponse<>(
-                true,
-                "Pending drivers fetched successfully",
-                driverPage.getContent(),
-                driverPage.getNumber(),
-                driverPage.getSize(),
-                driverPage.getTotalElements(),
-                driverPage.getTotalPages()));
+    public ResponseEntity<ApiResponse<Page<Driver>>> getPendingDriversPaginated(
+            @PageableDefault(size = 10, sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
+        return ResponseEntity.ok(ApiResponse.success("Pending drivers fetched successfully",
+                driverService.getPendingDrivers(pageable)));
     }
 }

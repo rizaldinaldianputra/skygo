@@ -18,72 +18,118 @@ import java.util.stream.Collectors;
 @Service
 public class MatchingService {
 
-    @Autowired
-    private RedisTemplate<String, String> redisTemplate;
+        @Autowired
+        private RedisTemplate<String, String> redisTemplate;
 
-    @Autowired
-    private SimpMessagingTemplate messagingTemplate;
+        @Autowired
+        private SimpMessagingTemplate messagingTemplate;
 
-    @Autowired
-    private FcmService fcmService;
+        @Autowired
+        private FcmService fcmService;
 
-    // In a real app, this should be in a separate Service/Repository to get Driver
-    // entity by ID
-    // or we cache the token in Redis too.
-    @Autowired
-    private com.skygo.repository.DriverRepository driverRepository;
+        // In a real app, this should be in a separate Service/Repository to get Driver
+        // entity by ID
+        // or we cache the token in Redis too.
+        @Autowired
+        private com.skygo.repository.DriverRepository driverRepository;
 
-    private static final String GEO_KEY = "drivers:online";
+        private static final String GEO_KEY = "drivers:online";
 
-    public void findDrivers(Order order) {
-        // Radius 3 KM
-        Point pickupPoint = new Point(order.getPickupLng(), order.getPickupLat());
-        Distance radius = new Distance(3.0, Metrics.KILOMETERS);
-        Circle circle = new Circle(pickupPoint, radius);
+        /**
+         * Find the CLOSEST driver to the pickup location and send notification ONLY to
+         * that driver.
+         * Gojek-style: one driver at a time, sorted by distance (ascending).
+         */
+        public void findDrivers(Order order) {
+                // Radius 3 KM
+                Point pickupPoint = new Point(order.getPickupLng(), order.getPickupLat());
+                Distance radius = new Distance(3.0, Metrics.KILOMETERS);
+                Circle circle = new Circle(pickupPoint, radius);
 
-        RedisGeoCommands.GeoRadiusCommandArgs args = RedisGeoCommands.GeoRadiusCommandArgs
-                .newGeoRadiusArgs()
-                .includeDistance()
-                .sortAscending();
+                RedisGeoCommands.GeoRadiusCommandArgs args = RedisGeoCommands.GeoRadiusCommandArgs
+                                .newGeoRadiusArgs()
+                                .includeDistance()
+                                .sortAscending(); // Closest first
 
-        GeoResults<RedisGeoCommands.GeoLocation<String>> results = redisTemplate.opsForGeo().radius(GEO_KEY, circle,
-                args);
+                System.out.println("[MatchingService] Searching CLOSEST driver near pickup: lat=" + order.getPickupLat()
+                                + ", lng=" + order.getPickupLng() + " within 3km radius");
 
-        if (results != null) {
-            List<String> nearbyDrivers = results.getContent().stream()
-                    .map(res -> res.getContent().getName())
-                    .collect(Collectors.toList());
+                GeoResults<RedisGeoCommands.GeoLocation<String>> results = redisTemplate.opsForGeo().radius(GEO_KEY,
+                                circle,
+                                args);
 
-            // In a real app, we would offer to the first one, then next.
-            // Simplified: Broadcast to all nearby drivers
-            for (String driverIdStr : nearbyDrivers) {
-                Long driverId = Long.parseLong(driverIdStr);
-
-                driverRepository.findById(driverId).ifPresent(driver -> {
-                    // Filter by Vehicle Type (if specified in order)
-                    if (order.getServiceType() != null &&
-                            !order.getServiceType().equalsIgnoreCase(driver.getVehicleType())) {
+                if (results == null || results.getContent().isEmpty()) {
+                        System.out.println("[MatchingService] NO drivers found in Redis Geo within 3km radius. "
+                                        + "Make sure drivers are ONLINE and sending location updates.");
                         return;
-                    }
+                }
 
-                    // Send Order Request to Driver via WebSocket
-                    messagingTemplate.convertAndSend("/topic/driver/" + driverIdStr + "/orders", order);
+                List<String> nearbyDrivers = results.getContent().stream()
+                                .map(res -> res.getContent().getName())
+                                .collect(Collectors.toList());
 
-                    // Send FCM
-                    java.util.Map<String, String> data = new java.util.HashMap<>();
-                    data.put("orderId", String.valueOf(order.getId()));
-                    data.put("pickupAddress", order.getPickupAddress());
-                    data.put("destinationAddress", order.getDestinationAddress());
-                    data.put("price", String.valueOf(order.getEstimatedPrice()));
-                    data.put("distance", String.valueOf(order.getDistanceKm()));
+                System.out.println("[MatchingService] Found " + nearbyDrivers.size() + " nearby driver(s) in Redis: "
+                                + nearbyDrivers);
 
-                    fcmService.sendNotification(
-                            driver.getFcmToken(),
-                            "New Order Available!",
-                            "Pickup at: " + order.getPickupAddress(),
-                            data);
-                });
-            }
+                // Find the CLOSEST matching driver (first valid one in sorted list)
+                for (String driverIdStr : nearbyDrivers) {
+                        Long driverId = Long.parseLong(driverIdStr);
+
+                        var driverOpt = driverRepository.findById(driverId);
+                        if (driverOpt.isEmpty()) {
+                                System.out.println(
+                                                "[MatchingService] Skipping driver " + driverId + " - not found in DB");
+                                continue;
+                        }
+
+                        var driver = driverOpt.get();
+
+                        // Filter by Vehicle Type (if specified in order)
+                        if (order.getServiceType() != null &&
+                                        !order.getServiceType().equalsIgnoreCase(driver.getVehicleType())) {
+                                System.out.println("[MatchingService] Skipping driver " + driverId
+                                                + " - vehicle type mismatch (order=" + order.getServiceType()
+                                                + ", driver=" + driver.getVehicleType() + ")");
+                                continue;
+                        }
+
+                        // Check FCM token
+                        if (driver.getFcmToken() == null || driver.getFcmToken().isEmpty()) {
+                                System.out.println("[MatchingService] Skipping driver " + driverId
+                                                + " - no FCM token, cannot send notification");
+                                continue;
+                        }
+
+                        // This is the closest valid driver — send notification ONLY to this one
+                        System.out.println("[MatchingService] Selected CLOSEST driver " + driverId
+                                        + " (token="
+                                        + driver.getFcmToken().substring(0, Math.min(10, driver.getFcmToken().length()))
+                                        + "..."
+                                        + ") for order " + order.getId());
+
+                        // Send Order Request to Driver via WebSocket
+                        messagingTemplate.convertAndSend("/topic/driver/" + driverIdStr + "/orders", order);
+
+                        // Send FCM notification
+                        java.util.Map<String, String> data = new java.util.HashMap<>();
+                        data.put("orderId", String.valueOf(order.getId()));
+                        data.put("pickupAddress", order.getPickupAddress());
+                        data.put("destinationAddress", order.getDestinationAddress());
+                        data.put("price", String.valueOf(order.getEstimatedPrice()));
+                        data.put("distance", String.valueOf(order.getDistanceKm()));
+
+                        fcmService.sendNotification(
+                                        driver.getFcmToken(),
+                                        "New Order Available!",
+                                        "Pickup at: " + order.getPickupAddress(),
+                                        data);
+
+                        System.out.println("[MatchingService] Notification sent to closest driver " + driverId
+                                        + " for order " + order.getId());
+                        return; // Done — only notify the closest driver
+                }
+
+                System.out.println("[MatchingService] No eligible driver found for order " + order.getId()
+                                + " (all nearby drivers were filtered out)");
         }
-    }
 }

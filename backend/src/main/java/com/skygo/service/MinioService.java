@@ -1,7 +1,11 @@
 package com.skygo.service;
 
+import io.minio.BucketExistsArgs;
+import io.minio.MakeBucketArgs;
 import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
+import io.minio.SetBucketPolicyArgs;
+import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -22,9 +26,45 @@ public class MinioService {
     @Value("${minio.url}")
     private String minioUrl;
 
+    @PostConstruct
+    public void init() {
+        try {
+            boolean found = minioClient.bucketExists(
+                    BucketExistsArgs.builder().bucket(bucketName).build());
+            if (!found) {
+                minioClient.makeBucket(
+                        MakeBucketArgs.builder().bucket(bucketName).build());
+
+                // Set public read policy so images are accessible
+                String policy = """
+                        {
+                          "Version": "2012-10-17",
+                          "Statement": [
+                            {
+                              "Effect": "Allow",
+                              "Principal": {"AWS": ["*"]},
+                              "Action": ["s3:GetObject"],
+                              "Resource": ["arn:aws:s3:::%s/*"]
+                            }
+                          ]
+                        }
+                        """.formatted(bucketName);
+
+                minioClient.setBucketPolicy(
+                        SetBucketPolicyArgs.builder()
+                                .bucket(bucketName)
+                                .config(policy)
+                                .build());
+
+                System.out.println("MinIO bucket '" + bucketName + "' created with public read policy.");
+            }
+        } catch (Exception e) {
+            System.err.println("Warning: Could not initialize MinIO bucket: " + e.getMessage());
+        }
+    }
+
     public String uploadFile(MultipartFile file, String folder) {
         try {
-            // Validate file
             if (file.isEmpty()) {
                 throw new RuntimeException("Failed to store empty file.");
             }
@@ -46,10 +86,6 @@ public class MinioService {
                             .contentType(file.getContentType())
                             .build());
 
-            // Construct public URL (assuming public bucket policy set in docker-compose)
-            // Note: If running in Docker, localhost:9000 might not be accessible from
-            // outside if this URL is used by client.
-            // But usually for public buckets, we return the URL.
             return minioUrl + "/" + bucketName + "/" + fileName;
 
         } catch (Exception e) {

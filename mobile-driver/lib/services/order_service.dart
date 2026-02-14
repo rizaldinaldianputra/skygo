@@ -54,12 +54,24 @@ class OrderService {
       if (response.statusCode == 200) {
         final data = response.data;
         if (_isSuccess(data)) {
-          final List list = data['data'];
+          // Backend returns paginated Page<Order> with {content: [...], totalElements, ...}
+          // Handle both paginated and flat list responses
+          final dynamic responseData = data['data'];
+          final List list;
+          if (responseData is List) {
+            list = responseData;
+          } else if (responseData is Map &&
+              responseData.containsKey('content')) {
+            list = responseData['content'] ?? [];
+          } else {
+            list = [];
+          }
           return list.map((json) => Order.fromJson(json)).toList();
         }
       }
       return [];
     } catch (e) {
+      print("Error fetching available orders: $e");
       return [];
     }
   }

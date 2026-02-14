@@ -10,8 +10,9 @@ import Monitoring from './pages/Monitoring';
 import Promos from './pages/Promos';
 import Banners from './pages/Banners';
 import News from './pages/News';
-import Services from './pages/Services';
 import PaymentMethods from './pages/PaymentMethods';
+import Orders from './pages/Orders';
+import Discounts from './pages/Discounts';
 
 const ProtectedRoute = ({ children }: { children: ReactNode }) => {
   const { isAuthenticated } = useAuth();
@@ -38,8 +39,9 @@ const AppRoutes = () => {
         <Route path="promos" element={<Promos />} />
         <Route path="banners" element={<Banners />} />
         <Route path="news" element={<News />} />
-        <Route path="services" element={<Services />} />
         <Route path="payment-methods" element={<PaymentMethods />} />
+        <Route path="orders" element={<Orders />} />
+        <Route path="discounts" element={<Discounts />} />
       </Route>
     </Routes>
   );

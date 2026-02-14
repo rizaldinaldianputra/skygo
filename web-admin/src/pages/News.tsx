@@ -6,14 +6,14 @@ const NewsPage = () => {
             title="News"
             endpoint="/admin/news"
             columns={[
-                { key: 'imageUrl', label: 'Image', type: 'image' },
-                { key: 'title', label: 'Title' },
-                { key: 'active', label: 'Active', type: 'boolean' },
+                { key: 'imageUrl', label: 'Gambar', type: 'image' },
+                { key: 'title', label: 'Judul' },
+                { key: 'active', label: 'Status', type: 'boolean' },
             ]}
             fields={[
-                { key: 'title', label: 'Title', type: 'text' },
-                { key: 'content', label: 'Content', type: 'textarea' },
-                { key: 'imageUrl', label: 'Image', type: 'image' },
+                { key: 'title', label: 'Judul Berita', type: 'text', required: true },
+                { key: 'content', label: 'Konten', type: 'textarea', required: true },
+                { key: 'imageUrl', label: 'Gambar', type: 'image' },
                 { key: 'active', label: 'Active', type: 'boolean' },
             ]}
         />

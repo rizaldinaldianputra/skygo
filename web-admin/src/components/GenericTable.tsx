@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { ChevronLeft, ChevronRight, Search } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Search } from 'lucide-react';
+import ReactPaginate from 'react-paginate';
 
 export interface Column<T> {
     header: string;
@@ -16,6 +17,7 @@ interface GenericTableProps<T> {
     onPageChange: (newPage: number) => void;
     onSearch?: (query: string) => void;
     loading?: boolean;
+    searchPlaceholder?: string;
 }
 
 function GenericTable<T>({
@@ -25,71 +27,79 @@ function GenericTable<T>({
     page,
     pageSize,
     onPageChange,
-    onSearch,
-    loading
+    loading,
+    searchPlaceholder = 'Cari data...'
 }: GenericTableProps<T>) {
     const [searchQuery, setSearchQuery] = useState('');
     const totalPages = Math.ceil(totalItems / pageSize);
 
-    const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setSearchQuery(e.target.value);
-        if (onSearch) {
-            // Debounce could be added here
-            onSearch(e.target.value);
-        }
+    // Client-side search filter
+    const filteredData = useMemo(() => {
+        if (!searchQuery.trim()) return data;
+        const q = searchQuery.toLowerCase();
+        return data.filter(item =>
+            columns.some(col => {
+                if (typeof col.accessor === 'function') return false;
+                const val = item[col.accessor];
+                if (val == null) return false;
+                return String(val).toLowerCase().includes(q);
+            })
+        );
+    }, [data, searchQuery, columns]);
+
+    const handlePageChange = (event: { selected: number }) => {
+        onPageChange(event.selected);
     };
 
     return (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-            {/* Header / Search */}
-            {onSearch && (
-                <div className="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
-                    <div className="relative w-72">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                        <input
-                            type="text"
-                            placeholder="Search..."
-                            value={searchQuery}
-                            onChange={handleSearch}
-                            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-skycosmic-light focus:border-transparent text-sm"
-                        />
-                    </div>
-                    <div className="text-sm text-gray-500">
-                        Total Records: <span className="font-semibold text-gray-900">{totalItems}</span>
-                    </div>
+            {/* Search */}
+            <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-gray-50">
+                <div className="relative max-w-sm flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                    <input
+                        type="text"
+                        placeholder={searchPlaceholder}
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
+                    />
                 </div>
-            )}
+                <span className="text-sm text-gray-500 ml-4">
+                    {searchQuery ? `${filteredData.length} hasil` : `${totalItems} total`}
+                </span>
+            </div>
 
             {/* Table */}
             <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm text-gray-600">
-                    <thead className="bg-gray-50 text-gray-700 uppercase font-medium">
+                    <thead className="bg-gray-50 border-b border-gray-200">
                         <tr>
                             {columns.map((col, index) => (
-                                <th key={index} className={`px-6 py-4 ${col.className || ''}`}>
+                                <th key={index} className={`px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider ${col.className || ''}`}>
                                     {col.header}
                                 </th>
                             ))}
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-200">
+                    <tbody className="divide-y divide-gray-100">
                         {loading ? (
                             <tr>
                                 <td colSpan={columns.length} className="px-6 py-12 text-center text-gray-500">
-                                    <div className="flex justify-center items-center space-x-2">
-                                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-skycosmic-DEFAULT"></div>
+                                    <div className="flex justify-center items-center gap-2">
+                                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
                                         <span>Loading data...</span>
                                     </div>
                                 </td>
                             </tr>
-                        ) : data.length === 0 ? (
+                        ) : filteredData.length === 0 ? (
                             <tr>
-                                <td colSpan={columns.length} className="px-6 py-12 text-center text-gray-400 italic">
-                                    No data found
+                                <td colSpan={columns.length} className="px-6 py-12 text-center text-gray-400">
+                                    {searchQuery ? `Tidak ada hasil untuk "${searchQuery}"` : 'Tidak ada data'}
                                 </td>
                             </tr>
                         ) : (
-                            data.map((item, rowIndex) => (
+                            filteredData.map((item, rowIndex) => (
                                 <tr key={rowIndex} className="hover:bg-gray-50 transition-colors">
                                     {columns.map((col, colIndex) => (
                                         <td key={colIndex} className="px-6 py-4 whitespace-nowrap">
@@ -105,29 +115,31 @@ function GenericTable<T>({
                 </table>
             </div>
 
-            {/* Pagination */}
-            <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between bg-gray-50">
-                <span className="text-sm text-gray-500">
-                    Page <span className="font-medium">{Math.min(page + 1, totalPages > 0 ? totalPages : 1)}</span> of{' '}
-                    <span className="font-medium">{totalPages > 0 ? totalPages : 1}</span>
-                </span>
-                <div className="flex space-x-2">
-                    <button
-                        onClick={() => onPageChange(page - 1)}
-                        disabled={page === 0 || loading}
-                        className="p-2 rounded-lg border border-gray-300 bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                        <ChevronLeft size={18} />
-                    </button>
-                    <button
-                        onClick={() => onPageChange(page + 1)}
-                        disabled={page >= totalPages - 1 || loading}
-                        className="p-2 rounded-lg border border-gray-300 bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                        <ChevronRight size={18} />
-                    </button>
+            {/* React Paginate */}
+            {totalPages > 1 && (
+                <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200 bg-gray-50">
+                    <p className="text-sm text-gray-600">
+                        Halaman <span className="font-semibold">{page + 1}</span> dari <span className="font-semibold">{totalPages}</span>
+                    </p>
+                    <ReactPaginate
+                        pageCount={totalPages}
+                        forcePage={page}
+                        onPageChange={handlePageChange}
+                        previousLabel="← Prev"
+                        nextLabel="Next →"
+                        pageRangeDisplayed={3}
+                        marginPagesDisplayed={1}
+                        containerClassName="flex items-center gap-1"
+                        pageLinkClassName="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors"
+                        activeLinkClassName="!bg-blue-600 !text-white !border-blue-600"
+                        previousLinkClassName="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors"
+                        nextLinkClassName="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors"
+                        disabledClassName="opacity-50 cursor-not-allowed"
+                        breakLabel="..."
+                        breakLinkClassName="px-3 py-1.5 text-sm text-gray-500"
+                    />
                 </div>
-            </div>
+            )}
         </div>
     );
 }

@@ -6,16 +6,17 @@ const Banners = () => {
             title="Banners"
             endpoint="/admin/banners"
             columns={[
-                { key: 'imageUrl', label: 'Image', type: 'image' },
-                { key: 'title', label: 'Title' },
-                { key: 'displayOrder', label: 'Order' },
-                { key: 'active', label: 'Active', type: 'boolean' },
+                { key: 'imageUrl', label: 'Gambar', type: 'image' },
+                { key: 'title', label: 'Judul' },
+                { key: 'actionUrl', label: 'Action URL' },
+                { key: 'displayOrder', label: 'Urutan' },
+                { key: 'active', label: 'Status', type: 'boolean' },
             ]}
             fields={[
-                { key: 'title', label: 'Title', type: 'text' },
-                { key: 'actionUrl', label: 'Action URL', type: 'text' },
-                { key: 'displayOrder', label: 'Display Order', type: 'number' },
-                { key: 'imageUrl', label: 'Image', type: 'image' },
+                { key: 'title', label: 'Judul Banner', type: 'text', required: true },
+                { key: 'actionUrl', label: 'Action URL (link tujuan)', type: 'text' },
+                { key: 'displayOrder', label: 'Urutan Tampil', type: 'number' },
+                { key: 'imageUrl', label: 'Gambar Banner', type: 'image' },
                 { key: 'active', label: 'Active', type: 'boolean' },
             ]}
         />

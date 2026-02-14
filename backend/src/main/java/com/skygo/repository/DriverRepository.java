@@ -21,4 +21,6 @@ public interface DriverRepository extends JpaRepository<Driver, Long> {
     long countByStatus(com.skygo.model.DriverStatus status);
 
     long countByAvailability(com.skygo.model.DriverAvailability availability);
+
+    java.util.List<Driver> findAllByAvailability(com.skygo.model.DriverAvailability availability);
 }

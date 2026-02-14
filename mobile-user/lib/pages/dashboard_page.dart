@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../session/session_manager.dart';
+import '../services/dashboard_service.dart';
 import 'login_page.dart';
 import 'map_page.dart';
 import 'order_history_page.dart';
@@ -13,12 +14,19 @@ class DashboardPage extends StatefulWidget {
 
 class _DashboardPageState extends State<DashboardPage> {
   String _userName = "User";
-  int _points = 0; // Coming soon
+  int _points = 0;
+
+  final DashboardService _dashboardService = DashboardService();
+  List<Map<String, dynamic>> _banners = [];
+  List<Map<String, dynamic>> _promos = [];
+  List<Map<String, dynamic>> _news = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
     _loadUserData();
+    _loadDashboardData();
   }
 
   void _loadUserData() async {
@@ -28,23 +36,55 @@ class _DashboardPageState extends State<DashboardPage> {
     });
   }
 
+  void _loadDashboardData() async {
+    try {
+      final banners = await _dashboardService.getBanners();
+      final promos = await _dashboardService.getPromos();
+      final news = await _dashboardService.getNews();
+      if (mounted) {
+        setState(() {
+          _banners = banners;
+          _promos = promos;
+          _news = news;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      print("Error loading dashboard data: $e");
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: _buildAppBar(),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            _buildHeader(),
-            _buildPointsBar(),
-            const SizedBox(height: 20),
-            _buildMenuGrid(),
-            const SizedBox(height: 20),
-            _buildPromoCarousel(),
-            const SizedBox(height: 20),
-            _buildNewsSection(),
-          ],
+      body: RefreshIndicator(
+        onRefresh: () async {
+          _loadDashboardData();
+        },
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Column(
+            children: [
+              _buildHeader(),
+              _buildPointsBar(),
+              const SizedBox(height: 20),
+              _buildMenuGrid(),
+              const SizedBox(height: 20),
+              _buildBannerCarousel(),
+              const SizedBox(height: 20),
+              _buildPromoCarousel(),
+              const SizedBox(height: 20),
+              _buildNewsSection(),
+              const SizedBox(height: 20),
+            ],
+          ),
         ),
       ),
       bottomNavigationBar: BottomNavigationBar(
@@ -94,7 +134,6 @@ class _DashboardPageState extends State<DashboardPage> {
             child: Icon(Icons.person, color: Colors.white),
           ),
           onPressed: () {
-            // Profile or settings
             _showLogoutDialog();
           },
         ),
@@ -132,9 +171,7 @@ class _DashboardPageState extends State<DashboardPage> {
       padding: const EdgeInsets.all(16.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          // Greeting handled in AppBar or here if needed
-        ],
+        children: const [],
       ),
     );
   }
@@ -144,7 +181,7 @@ class _DashboardPageState extends State<DashboardPage> {
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF0081A0), // Gopay Blue-ish
+        color: const Color(0xFF0081A0),
         borderRadius: BorderRadius.circular(15),
       ),
       child: Row(
@@ -194,14 +231,14 @@ class _DashboardPageState extends State<DashboardPage> {
         'label': 'SkyRide',
         'type': 'MOTOR',
         'active': true,
-        'color': const Color(0xFF00BFFF), // Blue
+        'color': const Color(0xFF00BFFF),
       },
       {
         'icon': Icons.directions_car,
         'label': 'SkyCar',
         'type': 'CAR',
         'active': true,
-        'color': const Color(0xFF00BFFF), // Blue
+        'color': const Color(0xFF00BFFF),
       },
       {
         'icon': Icons.fastfood,
@@ -305,21 +342,261 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  Widget _buildPromoCarousel() {
-    return SizedBox(
-      height: 150,
-      child: PageView(
-        controller: PageController(viewportFraction: 0.9),
-        children: [
-          _buildPromoCard(Colors.blue, "Diskon 50% untuk Pengguna Baru!"),
-          _buildPromoCard(Colors.orange, "Gratis Ongkir GoFood!"),
-          _buildPromoCard(Colors.purple, "Cashback 20% Pakai Gopay!"),
-        ],
-      ),
+  // ================== BANNER CAROUSEL (from API) ==================
+  Widget _buildBannerCarousel() {
+    if (_banners.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16),
+          child: Text(
+            "Banner",
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 140,
+          child: PageView.builder(
+            controller: PageController(viewportFraction: 0.9),
+            itemCount: _banners.length,
+            itemBuilder: (context, index) {
+              final banner = _banners[index];
+              final imageUrl = banner['imageUrl'] as String?;
+              final title = banner['title'] as String? ?? '';
+
+              return Container(
+                margin: const EdgeInsets.symmetric(horizontal: 5),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(15),
+                  color: Colors.grey[300],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(15),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      if (imageUrl != null && imageUrl.isNotEmpty)
+                        Image.network(
+                          imageUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (ctx, error, stack) => Container(
+                            color: Colors.blue.shade400,
+                            child: Center(
+                              child: Text(
+                                title,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ),
+                        )
+                      else
+                        Container(
+                          color: Colors.blue.shade400,
+                          child: Center(
+                            child: Text(
+                              title,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                      // Overlay title
+                      if (imageUrl != null && imageUrl.isNotEmpty)
+                        Positioned(
+                          bottom: 0,
+                          left: 0,
+                          right: 0,
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.bottomCenter,
+                                end: Alignment.topCenter,
+                                colors: [
+                                  Colors.black.withOpacity(0.6),
+                                  Colors.transparent,
+                                ],
+                              ),
+                            ),
+                            child: Text(
+                              title,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _buildPromoCard(Color color, String text) {
+  // ================== PROMO CAROUSEL (from API) ==================
+  Widget _buildPromoCarousel() {
+    // Fallback to hardcoded if no promos from API
+    if (_promos.isEmpty && !_isLoading) {
+      return SizedBox(
+        height: 150,
+        child: PageView(
+          controller: PageController(viewportFraction: 0.9),
+          children: [
+            _buildPromoCardFallback(
+              Colors.blue,
+              "Diskon 50% untuk Pengguna Baru!",
+            ),
+            _buildPromoCardFallback(Colors.orange, "Gratis Ongkir SkyFood!"),
+            _buildPromoCardFallback(
+              Colors.purple,
+              "Cashback 20% Pakai SkyPay!",
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_promos.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16),
+          child: Text(
+            "Promo Spesial",
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 150,
+          child: PageView.builder(
+            controller: PageController(viewportFraction: 0.9),
+            itemCount: _promos.length,
+            itemBuilder: (context, index) {
+              final promo = _promos[index];
+              final imageUrl = promo['imageUrl'] as String?;
+              final title = promo['title'] as String? ?? '';
+              final description = promo['description'] as String? ?? '';
+              final code = promo['code'] as String? ?? '';
+              final discountAmount = promo['discountAmount'];
+
+              return Container(
+                margin: const EdgeInsets.symmetric(horizontal: 5),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(15),
+                  gradient: LinearGradient(
+                    colors: [Colors.green.shade400, Colors.green.shade700],
+                  ),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(15),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      if (imageUrl != null && imageUrl.isNotEmpty)
+                        Image.network(
+                          imageUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (ctx, error, stack) =>
+                              const SizedBox.shrink(),
+                        ),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
+                            colors: [
+                              Colors.black.withOpacity(0.5),
+                              Colors.transparent,
+                            ],
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              title,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            if (description.isNotEmpty) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                description,
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 12,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                            if (code.isNotEmpty) ...[
+                              const SizedBox(height: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: Colors.white.withOpacity(0.4),
+                                  ),
+                                ),
+                                child: Text(
+                                  "Kode: $code",
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPromoCardFallback(Color color, String text) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 5),
       decoration: BoxDecoration(
@@ -340,6 +617,7 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
+  // ================== NEWS SECTION (from API) ==================
   Widget _buildNewsSection() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -351,24 +629,25 @@ class _DashboardPageState extends State<DashboardPage> {
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 10),
-          _buildNewsItem(
-            "Tips Hemat di Akhir Bulan",
-            "https://via.placeholder.com/150",
-          ),
-          _buildNewsItem(
-            "Update Fitur Terbaru SkyGo",
-            "https://via.placeholder.com/150",
-          ),
-          _buildNewsItem(
-            "Kuliner Wajib Coba Minggu Ini",
-            "https://via.placeholder.com/150",
-          ),
+          if (_news.isNotEmpty)
+            ..._news.map(
+              (newsItem) => _buildNewsItem(
+                newsItem['title'] as String? ?? 'Berita',
+                newsItem['imageUrl'] as String?,
+                newsItem['content'] as String?,
+              ),
+            )
+          else ...[
+            _buildNewsItemFallback("Tips Hemat di Akhir Bulan"),
+            _buildNewsItemFallback("Update Fitur Terbaru SkyGo"),
+            _buildNewsItemFallback("Kuliner Wajib Coba Minggu Ini"),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildNewsItem(String title, String imageUrl) {
+  Widget _buildNewsItem(String title, String? imageUrl, String? content) {
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -384,17 +663,57 @@ class _DashboardPageState extends State<DashboardPage> {
                 bottomLeft: Radius.circular(10),
               ),
             ),
-            child: const Icon(Icons.image, color: Colors.grey),
+            child: ClipRRect(
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(10),
+                bottomLeft: Radius.circular(10),
+              ),
+              child: imageUrl != null && imageUrl.isNotEmpty
+                  ? Image.network(
+                      imageUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (ctx, error, stack) =>
+                          const Icon(Icons.image, color: Colors.grey),
+                    )
+                  : const Icon(Icons.image, color: Colors.grey),
+            ),
           ),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(
-              title,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (content != null && content.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      content,
+                      style: const TextStyle(fontSize: 11, color: Colors.grey),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ],
+              ),
             ),
           ),
+          const SizedBox(width: 8),
         ],
       ),
     );
+  }
+
+  Widget _buildNewsItemFallback(String title) {
+    return _buildNewsItem(title, null, null);
   }
 }

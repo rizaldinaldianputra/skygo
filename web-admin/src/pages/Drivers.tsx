@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { getPendingDrivers, updateDriverStatus } from '../services/driverService';
 import { Check, X } from 'lucide-react';
 import type { Column } from '../components/GenericTable';
@@ -17,8 +17,9 @@ const Drivers = () => {
         try {
             const response = await getPendingDrivers(p, pageSize);
             if (response.status) {
-                setDrivers(response.data);
-                setTotalItems(response.totalElements);
+                // Spring Page format: data is { content, totalElements, ... }
+                setDrivers(response.data.content || []);
+                setTotalItems(response.data.totalElements || 0);
             }
         } catch (error) {
             console.error('Failed to fetch drivers', error);
@@ -88,8 +89,8 @@ const Drivers = () => {
                 page={page}
                 pageSize={pageSize}
                 onPageChange={setPage}
-                onSearch={() => { }} // Search not implemented in backend pagination yet
                 loading={loading}
+                searchPlaceholder="Cari driver..."
             />
         </div>
     );

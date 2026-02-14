@@ -6,19 +6,29 @@ const Promos = () => {
             title="Promos"
             endpoint="/admin/promos"
             columns={[
-                { key: 'imageUrl', label: 'Image', type: 'image' },
-                { key: 'title', label: 'Title' },
-                { key: 'code', label: 'Code' },
-                { key: 'discountAmount', label: 'Discount' },
-                { key: 'active', label: 'Active', type: 'boolean' },
+                { key: 'imageUrl', label: 'Gambar', type: 'image' },
+                { key: 'title', label: 'Judul' },
+                { key: 'code', label: 'Kode Promo' },
+                { key: 'discountAmount', label: 'Diskon' },
+                { key: 'discountType', label: 'Tipe' },
+                { key: 'active', label: 'Status', type: 'boolean' },
             ]}
             fields={[
-                { key: 'title', label: 'Title', type: 'text' },
-                { key: 'description', label: 'Description', type: 'textarea' },
-                { key: 'code', label: 'Promo Code', type: 'text' },
-                { key: 'discountAmount', label: 'Discount Amount', type: 'number' },
-                { key: 'discountType', label: 'Discount Type (FIXED/PERCENTAGE)', type: 'text' },
-                { key: 'imageUrl', label: 'Image', type: 'image' },
+                { key: 'title', label: 'Judul Promo', type: 'text', required: true },
+                { key: 'description', label: 'Deskripsi', type: 'textarea' },
+                { key: 'code', label: 'Kode Promo', type: 'text', required: true },
+                { key: 'discountAmount', label: 'Jumlah Diskon', type: 'number', required: true },
+                {
+                    key: 'discountType',
+                    label: 'Tipe Diskon',
+                    type: 'select',
+                    required: true,
+                    options: [
+                        { value: 'FIXED', label: 'Fixed (Rp)' },
+                        { value: 'PERCENTAGE', label: 'Percentage (%)' },
+                    ],
+                },
+                { key: 'imageUrl', label: 'Gambar Promo', type: 'image' },
                 { key: 'active', label: 'Active', type: 'boolean' },
             ]}
         />

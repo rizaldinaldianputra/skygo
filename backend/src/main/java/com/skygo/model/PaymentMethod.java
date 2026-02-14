@@ -13,6 +13,7 @@ public class PaymentMethod {
 
     private String code; // e.g. "WALLET", "TRANSFER"
     private String name; // e.g. "SkyPay", "Bank Transfer"
+    private String type; // CASH, WALLET, BANK
     private String description;
     private String imageUrl; // Icon/Logo
 

@@ -1,8 +1,8 @@
-import type { ApiResponse, Driver, PaginatedResponse } from '../interfaces/types';
+import type { ApiResponse, Driver, SpringPage } from '../interfaces/types';
 import api from './api';
 
 export const getPendingDrivers = async (page: number, size: number) => {
-    const response = await api.get<PaginatedResponse<Driver[]>>(`/drivers/pending/paginated`, {
+    const response = await api.get<ApiResponse<SpringPage<Driver>>>(`/drivers/pending/paginated`, {
         params: { page, size }
     });
     return response.data;

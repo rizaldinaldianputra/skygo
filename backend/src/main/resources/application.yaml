@@ -73,13 +73,5 @@ jwt:
   secret: 9a4f2c3d5e6f7g8h9i0j1k2l3m4n5o6p7q8r9s0t1u2v3w4x5y6z7a8b9c0d1e2f
   expiration: 86400000 # 24 hours in milliseconds
 
-camunda:
-  bpm:
-    admin-user:
-      id: admin
-      password: admin 
-    filter:
-      create: All tasks
-    database:
-      schema-update: true
+
 

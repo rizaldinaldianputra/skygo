@@ -1,10 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-    baseURL: 'http://localhost:8081/api', // Match backend port
-    headers: {
-        'Content-Type': 'application/json',
-    },
+    baseURL: 'http://192.168.1.4:8081/api',
 });
 
 api.interceptors.request.use(

@@ -7,16 +7,28 @@ const PaymentMethods = () => {
             endpoint="/admin/payment-methods"
             columns={[
                 { key: 'imageUrl', label: 'Icon', type: 'image' },
-                { key: 'name', label: 'Name' },
+                { key: 'name', label: 'Nama' },
                 { key: 'code', label: 'Code' },
-                { key: 'active', label: 'Active', type: 'boolean' },
+                { key: 'type', label: 'Type' },
+                { key: 'active', label: 'Status', type: 'boolean' },
             ]}
             fields={[
-                { key: 'name', label: 'Name', type: 'text' },
-                { key: 'code', label: 'Code (e.g. WALLET)', type: 'text' },
-                { key: 'description', label: 'Description', type: 'textarea' },
-                { key: 'instructions', label: 'Instructions', type: 'textarea' },
-                { key: 'imageUrl', label: 'Icon', type: 'image' },
+                { key: 'name', label: 'Nama', type: 'text', required: true },
+                { key: 'code', label: 'Code (e.g. GOPAY, BCA)', type: 'text', required: true },
+                {
+                    key: 'type',
+                    label: 'Tipe Pembayaran',
+                    type: 'select',
+                    required: true,
+                    options: [
+                        { value: 'CASH', label: 'Cash' },
+                        { value: 'WALLET', label: 'E-Wallet' },
+                        { value: 'BANK', label: 'Bank Transfer' },
+                    ],
+                },
+                { key: 'description', label: 'Deskripsi', type: 'textarea' },
+                { key: 'instructions', label: 'Instruksi Pembayaran', type: 'textarea' },
+                { key: 'imageUrl', label: 'Icon / Logo', type: 'image' },
                 { key: 'active', label: 'Active', type: 'boolean' },
             ]}
         />

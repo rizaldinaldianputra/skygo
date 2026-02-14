@@ -4,6 +4,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../services/tracking_service.dart';
 import '../services/order_service.dart';
+import '../services/websocket_service.dart';
 import '../session/session_manager.dart';
 import '../models/order_model.dart';
 import 'login_page.dart';
@@ -19,17 +20,15 @@ class _DashboardPageState extends State<DashboardPage> {
   final TrackingService _trackingService = TrackingService();
   final OrderService _orderService = OrderService();
   final SessionManager _sessionManager = SessionManager();
+  final WebSocketService _webSocketService = WebSocketService();
 
   bool _isOnline = false;
   Timer? _trackingTimer;
-  Timer? _orderPollingTimer;
 
   LatLng _currentPosition = const LatLng(-6.2088, 106.8456);
   final MapController _mapController = MapController();
 
   List<LatLng> _routePoints = [];
-  List<Order> _availableOrders = [];
-  Set<int> _seenOrderIds = {};
 
   String _driverName = "Driver";
 
@@ -43,39 +42,178 @@ class _DashboardPageState extends State<DashboardPage> {
     super.initState();
     _loadDriverInfo();
     _getCurrentLocation();
-    _startOrderPolling();
+    _setupWebSocket();
   }
 
-  void _startOrderPolling() {
-    _fetchOrders();
-    _orderPollingTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+  /// Setup WebSocket callback for incoming orders
+  void _setupWebSocket() {
+    _webSocketService.onOrderReceived = (Map<String, dynamic> data) {
       if (_isOnline && _activeOrder == null) {
-        _fetchOrders();
+        _handleNewOrderNotification(data);
       }
-    });
+    };
   }
 
-  Future<void> _fetchOrders() async {
+  /// Handle incoming WebSocket order message
+  void _handleNewOrderNotification(Map<String, dynamic> data) async {
     try {
-      final orders = await _orderService.getAvailableOrders();
+      // WebSocket sends full order object from backend
+      // Try parsing it directly as Order first
+      final order = Order.fromJson(data);
       if (!mounted) return;
-
-      // Detect new orders and show dialog
-      for (var order in orders) {
-        if (!_seenOrderIds.contains(order.id)) {
-          _seenOrderIds.add(order.id);
-          if (_isOnline && _activeOrder == null) {
+      _showNewOrderDialog(order);
+    } catch (e) {
+      print("Error parsing WebSocket order: $e");
+      // Fallback: try fetching by orderId
+      try {
+        final orderId = data['id'] ?? data['orderId'];
+        if (orderId != null) {
+          final order = await _orderService.getOrderDetails(
+            int.parse(orderId.toString()),
+          );
+          if (order != null && mounted) {
             _showNewOrderDialog(order);
+            return;
           }
         }
-      }
-
-      setState(() {
-        _availableOrders = orders;
-      });
-    } catch (e) {
-      print("Error fetching orders: $e");
+      } catch (_) {}
+      // Last fallback: simple dialog with raw data
+      _showSimpleOrderDialog(data);
     }
+  }
+
+  void _showSimpleOrderDialog(Map<String, dynamic> data) {
+    if (!mounted) return;
+
+    String price = data['price']?.toString() ?? '0';
+    String distance = data['distance']?.toString() ?? '0';
+    String orderId = data['orderId']?.toString() ?? '0';
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: const [
+            Icon(Icons.notifications_active, color: Colors.orange),
+            SizedBox(width: 8),
+            Expanded(child: Text("Pesanan Baru!")),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildInfoRow(
+              Icons.my_location,
+              "Jemput",
+              data['pickupAddress']?.toString(),
+            ),
+            const SizedBox(height: 10),
+            _buildInfoRow(
+              Icons.location_on,
+              "Tujuan",
+              data['destinationAddress']?.toString(),
+            ),
+            const SizedBox(height: 10),
+            const Divider(),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _buildTag(Icons.attach_money, "Rp $price", Colors.green),
+                _buildTag(Icons.directions_car, "$distance km", Colors.blue),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("Tolak", style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              bool success = await _orderService.acceptOrder(
+                int.parse(orderId),
+              );
+              if (success && mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text("Pesanan diterima!"),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+                // Refresh to get the accepted order
+                final order = await _orderService.getOrderDetails(
+                  int.parse(orderId),
+                );
+                if (order != null && mounted) {
+                  _setActiveOrder(order);
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+            ),
+            child: const Text(
+              "Terima Pesanan",
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String label, String? value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 20, color: Colors.grey),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+              Text(
+                value ?? 'Unknown',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTag(IconData icon, String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(color: color, fontWeight: FontWeight.bold),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showNewOrderDialog(Order order) async {
@@ -94,7 +232,6 @@ class _DashboardPageState extends State<DashboardPage> {
 
     if (!mounted) return;
 
-    // Create a new MapController for each dialog
     final dialogMapController = MapController();
 
     showDialog(
@@ -106,10 +243,10 @@ class _DashboardPageState extends State<DashboardPage> {
             borderRadius: BorderRadius.circular(16),
           ),
           title: Row(
-            children: [
-              const Icon(Icons.notifications_active, color: Colors.orange),
-              const SizedBox(width: 8),
-              const Expanded(child: Text("Pesanan Baru!")),
+            children: const [
+              Icon(Icons.notifications_active, color: Colors.orange),
+              SizedBox(width: 8),
+              Expanded(child: Text("Pesanan Baru!")),
             ],
           ),
           content: SizedBox(
@@ -316,29 +453,31 @@ class _DashboardPageState extends State<DashboardPage> {
           backgroundColor: Colors.green,
         ),
       );
-
-      final pickup = LatLng(order.pickupLat, order.pickupLng);
-      final destination = LatLng(order.destinationLat, order.destinationLng);
-
-      setState(() {
-        _activeOrder = order;
-        _activeOrderPickup = pickup;
-        _activeOrderDestination = destination;
-      });
-
-      // Draw route from current position to pickup on main map
-      _fetchRouteForMainMap(_currentPosition, pickup);
-
-      // Remove from available orders
-      _fetchOrders();
+      _setActiveOrder(order);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("Gagal menerima pesanan."),
+          content: Text(
+            "Gagal menerima pesanan. Pesanan mungkin sudah dibatalkan.",
+          ),
           backgroundColor: Colors.red,
         ),
       );
     }
+  }
+
+  void _setActiveOrder(Order order) {
+    final pickup = LatLng(order.pickupLat, order.pickupLng);
+    final destination = LatLng(order.destinationLat, order.destinationLng);
+
+    setState(() {
+      _activeOrder = order;
+      _activeOrderPickup = pickup;
+      _activeOrderDestination = destination;
+    });
+
+    // Draw route from current position to pickup
+    _fetchRouteForMainMap(_currentPosition, pickup);
   }
 
   void _fetchRouteForMainMap(LatLng from, LatLng to) async {
@@ -373,7 +512,6 @@ class _DashboardPageState extends State<DashboardPage> {
           backgroundColor: Colors.blue,
         ),
       );
-      // Switch route to pickup → destination
       if (_activeOrderPickup != null && _activeOrderDestination != null) {
         _fetchRouteForMainMap(_activeOrderPickup!, _activeOrderDestination!);
       }
@@ -395,7 +533,6 @@ class _DashboardPageState extends State<DashboardPage> {
         _activeOrderPickup = null;
         _activeOrderDestination = null;
         _routePoints = [];
-        _seenOrderIds.clear();
       });
     }
   }
@@ -412,7 +549,7 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   void dispose() {
     _trackingTimer?.cancel();
-    _orderPollingTimer?.cancel();
+    _webSocketService.dispose();
     super.dispose();
   }
 
@@ -424,8 +561,11 @@ class _DashboardPageState extends State<DashboardPage> {
       });
       if (_isOnline) {
         _startTracking();
+        _webSocketService.connect(); // Connect WebSocket when going online
       } else {
         _stopTracking();
+        _webSocketService
+            .disconnect(); // Disconnect WebSocket when going offline
         setState(() {
           _routePoints = [];
           _activeOrder = null;
@@ -493,7 +633,6 @@ class _DashboardPageState extends State<DashboardPage> {
             activeColor: Colors.white,
             activeTrackColor: Colors.lightGreenAccent,
           ),
-          IconButton(icon: const Icon(Icons.refresh), onPressed: _fetchOrders),
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () async {
@@ -510,317 +649,284 @@ class _DashboardPageState extends State<DashboardPage> {
           ),
         ],
       ),
-      body: Column(
+      body: Stack(
         children: [
-          // MAP
-          Expanded(
-            flex: _activeOrder != null ? 2 : 1,
-            child: Stack(
-              children: [
-                FlutterMap(
-                  mapController: _mapController,
-                  options: MapOptions(
-                    initialCenter: _currentPosition,
-                    initialZoom: 15.0,
-                    onMapReady: () {
-                      _isMapReady = true;
-                      if (_currentPosition.latitude != -6.2088) {
-                        _mapController.move(_currentPosition, 15);
-                      }
-                    },
-                  ),
-                  children: [
-                    TileLayer(
-                      urlTemplate:
-                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                      userAgentPackageName: 'com.skycosmic.driver',
+          // FULL-SCREEN MAP
+          FlutterMap(
+            mapController: _mapController,
+            options: MapOptions(
+              initialCenter: _currentPosition,
+              initialZoom: 15.0,
+              onMapReady: () {
+                _isMapReady = true;
+                if (_currentPosition.latitude != -6.2088) {
+                  _mapController.move(_currentPosition, 15);
+                }
+              },
+            ),
+            children: [
+              TileLayer(
+                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                userAgentPackageName: 'com.skycosmic.driver',
+              ),
+              if (_routePoints.isNotEmpty)
+                PolylineLayer(
+                  polylines: [
+                    Polyline(
+                      points: _routePoints,
+                      strokeWidth: 4.0,
+                      color: Colors.blue,
                     ),
-                    if (_routePoints.isNotEmpty)
-                      PolylineLayer(
-                        polylines: [
-                          Polyline(
-                            points: _routePoints,
-                            strokeWidth: 4.0,
-                            color: Colors.blue,
+                  ],
+                ),
+              MarkerLayer(
+                markers: [
+                  // Driver position
+                  Marker(
+                    point: _currentPosition,
+                    width: 60,
+                    height: 60,
+                    child: const Icon(
+                      Icons.navigation,
+                      color: Colors.blue,
+                      size: 36,
+                    ),
+                  ),
+                  // Pickup marker
+                  if (_activeOrderPickup != null)
+                    Marker(
+                      point: _activeOrderPickup!,
+                      width: 60,
+                      height: 60,
+                      child: const Column(
+                        children: [
+                          Icon(
+                            Icons.location_on,
+                            color: Colors.green,
+                            size: 36,
+                          ),
+                          Text(
+                            "Jemput",
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ],
                       ),
-                    MarkerLayer(
-                      markers: [
-                        // Driver position
-                        Marker(
-                          point: _currentPosition,
-                          width: 60,
-                          height: 60,
-                          child: const Icon(
-                            Icons.navigation,
-                            color: Colors.blue,
-                            size: 36,
+                    ),
+                  // Destination marker
+                  if (_activeOrderDestination != null)
+                    Marker(
+                      point: _activeOrderDestination!,
+                      width: 60,
+                      height: 60,
+                      child: const Column(
+                        children: [
+                          Icon(Icons.location_on, color: Colors.red, size: 36),
+                          Text(
+                            "Tujuan",
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
+
+          // Status indicator when online but no active order
+          if (_isOnline && _activeOrder == null)
+            Positioned(
+              bottom: 30,
+              left: 16,
+              right: 16,
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: const [
+                    BoxShadow(color: Colors.black26, blurRadius: 8),
+                  ],
+                ),
+                child: Row(
+                  children: const [
+                    Icon(Icons.wifi, color: Colors.green),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        "Menunggu pesanan masuk...",
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+          // Offline indicator
+          if (!_isOnline)
+            Positioned(
+              bottom: 30,
+              left: 16,
+              right: 16,
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: const [
+                    BoxShadow(color: Colors.black26, blurRadius: 8),
+                  ],
+                ),
+                child: Row(
+                  children: const [
+                    Icon(Icons.wifi_off, color: Colors.grey),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        "Anda sedang offline. Aktifkan untuk menerima pesanan.",
+                        style: TextStyle(fontSize: 14, color: Colors.grey),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+          // Active order actions overlay
+          if (_activeOrder != null)
+            Positioned(
+              bottom: 16,
+              left: 16,
+              right: 16,
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: const [
+                    BoxShadow(color: Colors.black26, blurRadius: 8),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.person, color: Colors.blue),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _activeOrder!.user?.name ?? "Penumpang",
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
                           ),
                         ),
-                        // Pickup marker
-                        if (_activeOrderPickup != null)
-                          Marker(
-                            point: _activeOrderPickup!,
-                            width: 60,
-                            height: 60,
-                            child: const Column(
-                              children: [
-                                Icon(
-                                  Icons.location_on,
-                                  color: Colors.green,
-                                  size: 36,
-                                ),
-                                Text(
-                                  "Jemput",
-                                  style: TextStyle(
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
+                        Text(
+                          "Rp ${_activeOrder!.estimatedPrice.toStringAsFixed(0)}",
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.my_location,
+                          size: 14,
+                          color: Colors.green,
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            _activeOrder!.pickupAddress,
+                            style: const TextStyle(fontSize: 12),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.location_on,
+                          size: 14,
+                          color: Colors.red,
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            _activeOrder!.destinationAddress,
+                            style: const TextStyle(fontSize: 12),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: _startTrip,
+                            icon: const Icon(
+                              Icons.play_arrow,
+                              color: Colors.white,
+                            ),
+                            label: const Text(
+                              "Mulai Jemput",
+                              style: TextStyle(color: Colors.white),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blue,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
                             ),
                           ),
-                        // Destination marker
-                        if (_activeOrderDestination != null)
-                          Marker(
-                            point: _activeOrderDestination!,
-                            width: 60,
-                            height: 60,
-                            child: const Column(
-                              children: [
-                                Icon(
-                                  Icons.location_on,
-                                  color: Colors.red,
-                                  size: 36,
-                                ),
-                                Text(
-                                  "Tujuan",
-                                  style: TextStyle(
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: _finishTrip,
+                            icon: const Icon(
+                              Icons.check_circle,
+                              color: Colors.white,
+                            ),
+                            label: const Text(
+                              "Selesai",
+                              style: TextStyle(color: Colors.white),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
                             ),
                           ),
+                        ),
                       ],
                     ),
                   ],
                 ),
-
-                // Active order actions overlay
-                if (_activeOrder != null)
-                  Positioned(
-                    bottom: 16,
-                    left: 16,
-                    right: 16,
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: const [
-                          BoxShadow(color: Colors.black26, blurRadius: 8),
-                        ],
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(Icons.person, color: Colors.blue),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  _activeOrder!.user?.name ?? "Penumpang",
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16,
-                                  ),
-                                ),
-                              ),
-                              Text(
-                                "Rp ${_activeOrder!.estimatedPrice.toStringAsFixed(0)}",
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.green,
-                                  fontSize: 16,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.my_location,
-                                size: 14,
-                                color: Colors.green,
-                              ),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                child: Text(
-                                  _activeOrder!.pickupAddress,
-                                  style: const TextStyle(fontSize: 12),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.location_on,
-                                size: 14,
-                                color: Colors.red,
-                              ),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                child: Text(
-                                  _activeOrder!.destinationAddress,
-                                  style: const TextStyle(fontSize: 12),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: ElevatedButton.icon(
-                                  onPressed: _startTrip,
-                                  icon: const Icon(
-                                    Icons.play_arrow,
-                                    color: Colors.white,
-                                  ),
-                                  label: const Text(
-                                    "Mulai Jemput",
-                                    style: TextStyle(color: Colors.white),
-                                  ),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.blue,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: ElevatedButton.icon(
-                                  onPressed: _finishTrip,
-                                  icon: const Icon(
-                                    Icons.check_circle,
-                                    color: Colors.white,
-                                  ),
-                                  label: const Text(
-                                    "Selesai",
-                                    style: TextStyle(color: Colors.white),
-                                  ),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.green,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-
-          // Available Orders List (hidden when active order)
-          if (_activeOrder == null)
-            Expanded(
-              flex: 1,
-              child: Column(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    color: Colors.blue[100],
-                    width: double.infinity,
-                    child: const Text(
-                      "Pesanan Tersedia",
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: _availableOrders.isEmpty
-                        ? const Center(
-                            child: Text("Belum ada pesanan tersedia."),
-                          )
-                        : ListView.builder(
-                            itemCount: _availableOrders.length,
-                            itemBuilder: (context, index) {
-                              final order = _availableOrders[index];
-                              return Card(
-                                margin: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                child: ListTile(
-                                  leading: const CircleAvatar(
-                                    child: Icon(Icons.person),
-                                  ),
-                                  title: Text(
-                                    order.user?.name ?? "Penumpang",
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  subtitle: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        "Dari: ${order.pickupAddress}",
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                      Text(
-                                        "Ke: ${order.destinationAddress}",
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                      Text(
-                                        "Rp ${order.estimatedPrice.toStringAsFixed(0)} • ${order.distanceKm.toStringAsFixed(1)} km",
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.green,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  trailing: ElevatedButton(
-                                    onPressed: () => _acceptOrder(order),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.green,
-                                    ),
-                                    child: const Text(
-                                      "Terima",
-                                      style: TextStyle(color: Colors.white),
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                  ),
-                ],
               ),
             ),
         ],

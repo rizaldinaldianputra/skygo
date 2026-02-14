@@ -3,6 +3,8 @@ package com.skygo.service;
 import com.skygo.model.Discount;
 import com.skygo.repository.DiscountRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -15,6 +17,10 @@ public class DiscountService {
 
     public List<Discount> getAllDiscounts() {
         return discountRepository.findAll();
+    }
+
+    public Page<Discount> getAllDiscounts(Pageable pageable) {
+        return discountRepository.findAll(pageable);
     }
 
     public Discount createDiscount(Discount discount) {

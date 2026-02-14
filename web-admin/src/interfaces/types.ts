@@ -4,11 +4,16 @@ export interface ApiResponse<T> {
     data: T;
 }
 
-export interface PaginatedResponse<T> extends ApiResponse<T> {
-    page: number;
-    size: number;
+/** Spring Page<T> format — the standard pagination wrapper from Spring Data */
+export interface SpringPage<T> {
+    content: T[];
     totalElements: number;
     totalPages: number;
+    size: number;
+    number: number;
+    first: boolean;
+    last: boolean;
+    empty: boolean;
 }
 
 export interface User {
